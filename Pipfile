@@ -8,7 +8,7 @@ name = "pypi"
 aiohttp = "*"
 requests = "*"
 sqlalchemy = "*"
-psycopg2 = "*"
+"psycopg2" = "*"
 nycodex = {path = ".", editable = true}
 
 [dev-packages]
@@ -19,6 +19,12 @@ pytest = "*"
 pdbpp = "*"
 ipython = "*"
 pgcli = "*"
+
+
+
+
+
+
 
 [requires]
 python_version = "3.5"

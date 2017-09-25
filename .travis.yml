@@ -1,0 +1,25 @@
+language: python
+python: 3.5
+sudo: required
+
+addons:
+- postgresql: "9.5"
+services:
+- postgresql
+
+notifications:
+  email: false
+
+cache:
+  directories:
+    - $HOME/.cache/pip
+
+before_install:
+- ./scripts/bootstrap.sh
+install:
+- pip install pipenv
+- pipenv install
+
+script:
+- pipenv run flake8
+# - pipenv run py.test

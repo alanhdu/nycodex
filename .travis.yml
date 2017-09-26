@@ -9,10 +9,14 @@ services:
 
 notifications:
   email: false
+  slack:
+    on_sucess: change
+    on_failure: always
+    secure: vQLOJ/kXgBeUJtrXm04CFRsDrmNeqytz/hOFQd90wB4LNxxM4hof3Pkou0PIYppu0E82rluv8CnGiJqr52DP1g3XjL0u+m9cxBPXlcvz3idj19HHrhpZd8LEX5CIqSmPTeW7FDSuF8VEk4x8vZ/EglQ3cPGblHXQWsFlYf9Bmf+GaMuKwnF0CDNO1KIHas2rLmsPCNXw+irjZcsPhBMyno0piHVsBuHIqOdV2q9N5+gq6I8kaREPYpguMVkRGAmfMPNv4PeWNTT5dkXNNm+qG37JrRpYardfTYm3eyQEgAYhly4wCKzEimcCm2/92f/KCSBCkl5CehW3505eTaqd5rO1/RWeiDxpDq/lKpsseo6miLtLrJ1qBnxaVxDZk/zJtDyFcxwaS11xq9urwpl+pyJoMiFabFi1uYj8i1KNoEdYuJzRuxVoxIyT2QXxou9IEFLCdEFdqFn6XMHsx3gIveqgVOjs6BFUZeekeSB03BVYBx4oP7kZB6NUC9gvc52ARnBlS2KZ6c2ymKUL1Lak9aL7rvCUPsUYCKxZuAvePY2sk0jovzvvHjIo6B+8ASScPhsfbRU/VtXVNetismMCY4K8aHzhXM2UjCNvsjbTw9CRQEGd7Qd12jc/PIEMm2xFpqi9E7VpsugwmljSuu/hmnhXrOuen9l3tqGocRR+8UY=
 
 cache:
   directories:
-    - $HOME/.cache/pip
+  - $HOME/.cache/pip
 
 before_install:
 - ./scripts/bootstrap.sh
@@ -22,4 +26,3 @@ install:
 
 script:
 - pipenv run flake8
-# - pipenv run py.test

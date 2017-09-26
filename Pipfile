@@ -19,6 +19,7 @@ pytest = "*"
 pdbpp = "*"
 ipython = "*"
 pgcli = "*"
+"flake8-import-order" = "*"
 
 
 

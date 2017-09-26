@@ -18,7 +18,7 @@ before_install:
 - ./scripts/bootstrap.sh
 install:
 - pip install pipenv
-- pipenv install
+- pipenv install --dev
 
 script:
 - pipenv run flake8

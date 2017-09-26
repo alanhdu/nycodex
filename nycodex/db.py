@@ -2,9 +2,9 @@ from enum import Enum
 import os
 import typing
 
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.dialects import postgresql
 import sqlalchemy
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
 

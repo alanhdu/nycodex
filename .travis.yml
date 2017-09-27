@@ -1,6 +1,7 @@
 language: python
 python: 3.6
-sudo: required
+dist: trusty
+sudo: false
 
 addons:
   postgresql: "9.5"
@@ -18,7 +19,8 @@ cache:
   - $HOME/.cache/pip
 
 before_install:
-- ./scripts/bootstrap.sh
+- psql -c 'CREATE DATABASE nycodex;' -U postgres
+- echo "DATABASE_URI=postgresql://postgresql@localhost/nycodex" > .env
 install:
 - pip install pipenv
 - pipenv install --ignore-pipfile --dev

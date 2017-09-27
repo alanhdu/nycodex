@@ -26,7 +26,30 @@ class DomainCategory(Enum):
     TRANSPORTATION = "Transportation"
 
 
-class Dataset(Base):
+class DbMixin():
+    @classmethod
+    def upsert(cls, conn: sqlalchemy.engine.base.Connection,
+               owners: typing.Iterable["Owner"]) -> None:
+        keys = cls.__table__.c.keys()
+        for owner in owners:
+            data = {key: getattr(owner, key) for key in keys}
+            insert = (postgresql.insert(cls.__table__).values(**data)
+                      .on_conflict_do_update(
+                          index_elements=[cls.__table__.c.id],
+                          set_={k: data[k]
+                                for k in data if k != 'id'}))
+            conn.execute(insert)
+
+    def __eq__(self, other):
+        keys = self.__table__.c.keys()
+        return ({key: getattr(self, key)
+                 for key in keys} == {
+                     key: getattr(other, key)
+                     for key in keys
+                 })
+
+
+class Dataset(Base, DbMixin):
     __tablename__ = "dataset"
 
     id = sqlalchemy.Column(sqlalchemy.CHAR(9), primary_key=True)
@@ -39,42 +62,12 @@ class Dataset(Base):
 
     domain_category = sqlalchemy.Column(
         postgresql.ENUM(
-            *[v.value for v in DomainCategory.__members__.values()],
+            * [v.value for v in DomainCategory.__members__.values()],
             name="DomainCategory"),
         nullable=True)
 
-    @classmethod
-    def upsert(cls, datasets: typing.Iterable["Dataset"]) -> None:
-        keys = cls.__table__.c.keys()
-        with engine.connect() as conn:
-            for dataset in datasets:
-                data = {key: getattr(dataset, key) for key in keys}
-                insert = (postgresql
-                          .insert(cls.__table__)
-                          .values(**data)
-                          .on_conflict_do_update(
-                              index_elements=[cls.__table__.c.id],
-                              set_={k: data[k] for k in data if k != 'id'})
-                          )
-                conn.execute(insert)
 
-
-class Owner(Base):
+class Owner(Base, DbMixin):
     __tablename__ = "owner"
     id = sqlalchemy.Column(sqlalchemy.CHAR(9), primary_key=True)
     name = sqlalchemy.Column(sqlalchemy.TEXT, nullable=False)
-
-    @classmethod
-    def upsert(cls, owners: typing.Iterable["Owner"]) -> None:
-        keys = cls.__table__.c.keys()
-        with engine.connect() as conn:
-            for owner in owners:
-                data = {key: getattr(owner, key) for key in keys}
-                insert = (postgresql
-                          .insert(cls.__table__)
-                          .values(**data)
-                          .on_conflict_do_update(
-                              index_elements=[cls.__table__.c.id],
-                              set_={k: data[k] for k in data if k != 'id'})
-                          )
-                conn.execute(insert)

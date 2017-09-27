@@ -20,6 +20,10 @@ pdbpp = "*"
 ipython = "*"
 pgcli = "*"
 "flake8-import-order" = "*"
+"pytest-cov" = "*"
+ptyprocess = "*"
+"testing.postgresql" = "*"
+codecov = "*"
 
 
 

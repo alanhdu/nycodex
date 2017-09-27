@@ -3,9 +3,8 @@ python: 3.6
 sudo: required
 
 addons:
-- postgresql: "9.5"
-services:
-- postgresql
+  postgresql: "9.5"
+
 
 notifications:
   email: false
@@ -22,7 +21,11 @@ before_install:
 - ./scripts/bootstrap.sh
 install:
 - pip install pipenv
-- pipenv install --dev
+- pipenv install --ignore-pipfile --dev
 
 script:
 - pipenv run flake8
+- pipenv run py.test --verbose --cov
+
+after_success:
+- pipenv run codecov

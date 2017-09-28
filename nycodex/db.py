@@ -6,7 +6,7 @@ import sqlalchemy
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.declarative import declarative_base
 
-Base = declarative_base()
+Base = declarative_base()   # type: typing.Any
 
 engine = sqlalchemy.create_engine(os.environ["DATABASE_URI"])
 Session = sqlalchemy.orm.sessionmaker(bind=engine)
@@ -27,12 +27,14 @@ class DomainCategory(Enum):
 
 
 class DbMixin():
+    __table__: sqlalchemy.Table
+
     @classmethod
     def upsert(cls, conn: sqlalchemy.engine.base.Connection,
-               owners: typing.Iterable["Owner"]) -> None:
+               instances: typing.Iterable["DbMixin"]) -> None:
         keys = cls.__table__.c.keys()
-        for owner in owners:
-            data = {key: getattr(owner, key) for key in keys}
+        for instance in instances:
+            data = {key: getattr(instance, key) for key in keys}
             insert = (postgresql.insert(cls.__table__).values(**data)
                       .on_conflict_do_update(
                           index_elements=[cls.__table__.c.id],

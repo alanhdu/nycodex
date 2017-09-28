@@ -54,8 +54,9 @@ def main():
 
     print("INSERTING", len(datasets), "datasets")
 
-    db.Owner.upsert(owners.values())
-    db.Dataset.upsert(datasets.values())
+    with db.engine.connect() as conn:
+        db.Owner.upsert(conn, owners.values())
+        db.Dataset.upsert(conn, datasets.values())
 
 
 if __name__ == "__main__":

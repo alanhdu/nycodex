@@ -6,7 +6,7 @@ import sqlalchemy
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.declarative import declarative_base
 
-Base = declarative_base()   # type: typing.Any
+Base = declarative_base()  # type: typing.Any
 
 engine = sqlalchemy.create_engine(os.environ["DATABASE_URI"])
 Session = sqlalchemy.orm.sessionmaker(bind=engine)
@@ -58,6 +58,7 @@ class Dataset(Base, DbMixin):
 
     name = sqlalchemy.Column(sqlalchemy.VARCHAR, nullable=False)
     description = sqlalchemy.Column(sqlalchemy.TEXT, nullable=False)
+    is_official = sqlalchemy.Column(sqlalchemy.BOOLEAN, nullable=False)
 
     owner_id = sqlalchemy.Column(
         sqlalchemy.CHAR(9), sqlalchemy.ForeignKey("owner.id"))

@@ -8,7 +8,7 @@ BASE = "https://api.us.socrata.com/api/catalog/v1"
 DOMAIN = "data.cityofnewyork.us"
 
 
-def api(path: str, params: typing.Dict[str, str]=None):
+def api(path: str, params: typing.Dict[str, str] = None):
     if params is None:
         params = {}
     params.update({
@@ -45,11 +45,13 @@ def main():
 
             owners[owner['id']] = db.Owner(
                 id=owner['id'], name=owner['display_name'])
+            assert resource['provenance'] in {"official", 'community'}
             datasets[resource['id']] = db.Dataset(
                 id=resource['id'],
                 name=resource['name'],
                 description=resource['description'],
                 domain_category=classification['domain_category'],
+                is_official=resource['provenance'] == 'official',
                 owner_id=owner['id'])
 
     print("INSERTING", len(datasets), "datasets")

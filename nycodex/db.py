@@ -26,6 +26,17 @@ class DomainCategory(Enum):
     TRANSPORTATION = "Transportation"
 
 
+class AssetType(Enum):
+    CALENDAR = 'calendar'
+    CHART = 'chart'
+    DATALENS = 'datalens'
+    DATASET = 'dataset'
+    FILE = 'file'
+    FILTER = 'filter'
+    HREF = 'href'
+    MAP = 'map'
+
+
 class DbMixin():
     __table__: sqlalchemy.Table
 
@@ -67,6 +78,11 @@ class Dataset(Base, DbMixin):
         postgresql.ENUM(
             * [v.value for v in DomainCategory.__members__.values()],
             name="DomainCategory"),
+        nullable=True)
+    asset_type = sqlalchemy.Column(
+        postgresql.ENUM(
+            * [v.value for v in AssetType.__members__.values()],
+            name="AssetType"),
         nullable=True)
 
 

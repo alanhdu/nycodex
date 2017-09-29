@@ -47,11 +47,12 @@ def main():
                 id=owner['id'], name=owner['display_name'])
             assert resource['provenance'] in {"official", 'community'}
             datasets[resource['id']] = db.Dataset(
-                id=resource['id'],
-                name=resource['name'],
+                asset_type=resource['type'],
                 description=resource['description'],
                 domain_category=classification['domain_category'],
+                id=resource['id'],
                 is_official=resource['provenance'] == 'official',
+                name=resource['name'],
                 owner_id=owner['id'])
 
     print("INSERTING", len(datasets), "datasets")

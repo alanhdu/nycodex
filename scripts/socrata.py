@@ -1,5 +1,7 @@
 import typing
 
+import dateutil.parser
+import pytz
 import requests
 
 from nycodex import db
@@ -53,7 +55,9 @@ def main():
                 id=resource['id'],
                 is_official=resource['provenance'] == 'official',
                 name=resource['name'],
-                owner_id=owner['id'])
+                owner_id=owner['id'],
+                updated_at=dateutil.parser.parse(
+                    resource['updatedAt']).astimezone(pytz.utc))
 
     print("INSERTING", len(datasets), "datasets")
 

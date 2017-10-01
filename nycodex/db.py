@@ -74,6 +74,11 @@ class Dataset(Base, DbMixin):
     owner_id = sqlalchemy.Column(
         sqlalchemy.CHAR(9), sqlalchemy.ForeignKey("owner.id"))
 
+    updated_at = sqlalchemy.Column(
+        sqlalchemy.TIMESTAMP(timezone=True), nullable=False)
+    scraped_at = sqlalchemy.Column(
+        sqlalchemy.TIMESTAMP(timezone=True), nullable=True)
+
     domain_category = sqlalchemy.Column(
         postgresql.ENUM(
             * [v.value for v in DomainCategory.__members__.values()],

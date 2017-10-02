@@ -55,10 +55,12 @@ class DbMixin:
                                 for k in data if k != 'id'}))
             conn.execute(insert)
 
-    def __eq__(self, other):
+    def to_dict(self):
         keys = self.__table__.c.keys()
-        return ({key: getattr(self, key) for key in keys}
-                == {key: getattr(other, key) for key in keys})  # yapf: disable
+        return {key: getattr(self, key) for key in keys}
+
+    def __eq__(self, other):
+        return self.to_dict() == other.to_dict()
 
 
 def sql_enum(enum: typing.Type[enum.Enum]):

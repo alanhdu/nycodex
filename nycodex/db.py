@@ -1,4 +1,4 @@
-from enum import Enum
+import enum
 import os
 import typing
 
@@ -12,7 +12,8 @@ engine = sqlalchemy.create_engine(os.environ["DATABASE_URI"])
 Session = sqlalchemy.orm.sessionmaker(bind=engine)
 
 
-class DomainCategory(Enum):
+@enum.unique
+class DomainCategory(enum.Enum):
     BIGAPPS = "NYC BigApps"
     BUSINESS = "Business"
     CITY_GOVERNMENT = "City Government"
@@ -26,7 +27,8 @@ class DomainCategory(Enum):
     TRANSPORTATION = "Transportation"
 
 
-class AssetType(Enum):
+@enum.unique
+class AssetType(enum.Enum):
     CALENDAR = 'calendar'
     CHART = 'chart'
     DATALENS = 'datalens'
@@ -37,7 +39,7 @@ class AssetType(Enum):
     MAP = 'map'
 
 
-class DbMixin():
+class DbMixin:
     __table__: sqlalchemy.Table
 
     @classmethod
@@ -55,11 +57,14 @@ class DbMixin():
 
     def __eq__(self, other):
         keys = self.__table__.c.keys()
-        return ({key: getattr(self, key)
-                 for key in keys} == {
-                     key: getattr(other, key)
-                     for key in keys
-                 })
+        return ({key: getattr(self, key) for key in keys}
+                == {key: getattr(other, key) for key in keys})  # yapf: disable
+
+
+def sql_enum(enum: typing.Type[enum.Enum]):
+    return type(enum.__name__, (), {
+        "__members__": {v.value: v for v in enum.__members__.values()}
+    })  # yapf: disable
 
 
 class Dataset(Base, DbMixin):
@@ -80,15 +85,10 @@ class Dataset(Base, DbMixin):
         sqlalchemy.TIMESTAMP(timezone=True), nullable=True)
 
     domain_category = sqlalchemy.Column(
-        postgresql.ENUM(
-            * [v.value for v in DomainCategory.__members__.values()],
-            name="DomainCategory"),
+        postgresql.ENUM(sql_enum(DomainCategory), name="DomainCategory"),
         nullable=True)
     asset_type = sqlalchemy.Column(
-        postgresql.ENUM(
-            * [v.value for v in AssetType.__members__.values()],
-            name="AssetType"),
-        nullable=True)
+        postgresql.ENUM(sql_enum(AssetType), name="AssetType"), nullable=True)
 
 
 class Owner(Base, DbMixin):

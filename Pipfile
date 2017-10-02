@@ -9,6 +9,8 @@ requests = "*"
 sqlalchemy = "*"
 "psycopg2" = "*"
 nycodex = {path = ".", editable = true}
+"python-dateutil" = "*"
+pytz = "*"
 
 [dev-packages]
 

@@ -1,4 +1,7 @@
+import datetime as dt
+
 import pytest
+import pytz
 import sqlalchemy
 import testing.postgresql
 
@@ -57,24 +60,33 @@ def test_Dataset_upsert(session, conn):
             id="abcd-0000",
             name="x",
             description="test",
+            is_official=True,
+            updated_at=pytz.utc.localize(dt.datetime.utcnow()),
+            scraped_at=pytz.utc.localize(dt.datetime.utcnow()),
             owner_id=owner.id,
-            domain_category=db.DomainCategory.RECREATION.value),
+            domain_category=db.DomainCategory.RECREATION,
+            asset_type=db.AssetType.MAP),
         db.Dataset(
             id="abcd-0001",
             name="y",
             description="test",
+            is_official=False,
             owner_id=owner.id,
-            domain_category=db.DomainCategory.ENVIRONMENT.value),
+            updated_at=pytz.utc.localize(dt.datetime.utcnow()),
+            domain_category="Recreation",
+            asset_type="map")
     ]
 
     db.Dataset.upsert(conn, datasets)
-    assert session.query(db.Dataset).order_by(db.Dataset.id).all() == datasets
+    assert session.query(db.Dataset).order_by(db.Dataset.id).count() == 2
 
     # Does not insert extra columns
     db.Dataset.upsert(conn, datasets)
-    assert session.query(db.Dataset).order_by(db.Dataset.id).all() == datasets
+    assert session.query(db.Dataset).order_by(db.Dataset.id).count() == 2
 
     # Handles conflicts correctly
-    datasets[0].name = 'd'
+    datasets[1].domain_category = db.DomainCategory.SOCIAL_SERVICES
+    datasets[1].asset_type = db.AssetType.DATASET
+    assert session.query(db.Dataset).order_by(db.Dataset.id).all() != datasets
     db.Dataset.upsert(conn, datasets)
     assert session.query(db.Dataset).order_by(db.Dataset.id).all() == datasets

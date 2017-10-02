@@ -1,4 +1,4 @@
-from enum import Enum
+import enum
 import os
 import typing
 
@@ -6,13 +6,14 @@ import sqlalchemy
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.declarative import declarative_base
 
-Base = declarative_base()   # type: typing.Any
+Base = declarative_base()  # type: typing.Any
 
 engine = sqlalchemy.create_engine(os.environ["DATABASE_URI"])
 Session = sqlalchemy.orm.sessionmaker(bind=engine)
 
 
-class DomainCategory(Enum):
+@enum.unique
+class DomainCategory(enum.Enum):
     BIGAPPS = "NYC BigApps"
     BUSINESS = "Business"
     CITY_GOVERNMENT = "City Government"
@@ -26,7 +27,19 @@ class DomainCategory(Enum):
     TRANSPORTATION = "Transportation"
 
 
-class DbMixin():
+@enum.unique
+class AssetType(enum.Enum):
+    CALENDAR = 'calendar'
+    CHART = 'chart'
+    DATALENS = 'datalens'
+    DATASET = 'dataset'
+    FILE = 'file'
+    FILTER = 'filter'
+    HREF = 'href'
+    MAP = 'map'
+
+
+class DbMixin:
     __table__: sqlalchemy.Table
 
     @classmethod
@@ -42,13 +55,18 @@ class DbMixin():
                                 for k in data if k != 'id'}))
             conn.execute(insert)
 
-    def __eq__(self, other):
+    def to_dict(self):
         keys = self.__table__.c.keys()
-        return ({key: getattr(self, key)
-                 for key in keys} == {
-                     key: getattr(other, key)
-                     for key in keys
-                 })
+        return {key: getattr(self, key) for key in keys}
+
+    def __eq__(self, other):
+        return self.to_dict() == other.to_dict()
+
+
+def sql_enum(enum: typing.Type[enum.Enum]):
+    return type(enum.__name__, (), {
+        "__members__": {v.value: v for v in enum.__members__.values()}
+    })  # yapf: disable
 
 
 class Dataset(Base, DbMixin):
@@ -58,15 +76,21 @@ class Dataset(Base, DbMixin):
 
     name = sqlalchemy.Column(sqlalchemy.VARCHAR, nullable=False)
     description = sqlalchemy.Column(sqlalchemy.TEXT, nullable=False)
+    is_official = sqlalchemy.Column(sqlalchemy.BOOLEAN, nullable=False)
 
     owner_id = sqlalchemy.Column(
         sqlalchemy.CHAR(9), sqlalchemy.ForeignKey("owner.id"))
 
+    updated_at = sqlalchemy.Column(
+        sqlalchemy.TIMESTAMP(timezone=True), nullable=False)
+    scraped_at = sqlalchemy.Column(
+        sqlalchemy.TIMESTAMP(timezone=True), nullable=True)
+
     domain_category = sqlalchemy.Column(
-        postgresql.ENUM(
-            * [v.value for v in DomainCategory.__members__.values()],
-            name="DomainCategory"),
+        postgresql.ENUM(sql_enum(DomainCategory), name="DomainCategory"),
         nullable=True)
+    asset_type = sqlalchemy.Column(
+        postgresql.ENUM(sql_enum(AssetType), name="AssetType"), nullable=True)
 
 
 class Owner(Base, DbMixin):

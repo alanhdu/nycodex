@@ -1,5 +1,7 @@
 import typing
 
+import dateutil.parser
+import pytz
 import requests
 
 from nycodex import db
@@ -8,7 +10,7 @@ BASE = "https://api.us.socrata.com/api/catalog/v1"
 DOMAIN = "data.cityofnewyork.us"
 
 
-def api(path: str, params: typing.Dict[str, str]=None):
+def api(path: str, params: typing.Dict[str, str] = None):
     if params is None:
         params = {}
     params.update({
@@ -45,12 +47,17 @@ def main():
 
             owners[owner['id']] = db.Owner(
                 id=owner['id'], name=owner['display_name'])
+            assert resource['provenance'] in {"official", 'community'}
             datasets[resource['id']] = db.Dataset(
-                id=resource['id'],
-                name=resource['name'],
+                asset_type=resource['type'],
                 description=resource['description'],
                 domain_category=classification['domain_category'],
-                owner_id=owner['id'])
+                id=resource['id'],
+                is_official=resource['provenance'] == 'official',
+                name=resource['name'],
+                owner_id=owner['id'],
+                updated_at=dateutil.parser.parse(
+                    resource['updatedAt']).astimezone(pytz.utc))
 
     print("INSERTING", len(datasets), "datasets")
 

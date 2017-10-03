@@ -65,6 +65,7 @@ def test_Dataset_upsert(session, conn):
             scraped_at=pytz.utc.localize(dt.datetime.utcnow()),
             owner_id=owner.id,
             domain_category=db.DomainCategory.RECREATION,
+            domain_tags=['2010', 'politics'],
             asset_type=db.AssetType.MAP),
         db.Dataset(
             id="abcd-0001",
@@ -74,6 +75,7 @@ def test_Dataset_upsert(session, conn):
             owner_id=owner.id,
             updated_at=pytz.utc.localize(dt.datetime.utcnow()),
             domain_category="Recreation",
+            domain_tags=[],
             asset_type="map")
     ]
 

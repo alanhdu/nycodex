@@ -92,6 +92,15 @@ class Dataset(Base, DbMixin):
     asset_type = sqlalchemy.Column(
         postgresql.ENUM(sql_enum(AssetType), name="AssetType"), nullable=True)
 
+    domain_tags = sqlalchemy.Column(
+        sqlalchemy.ARRAY(sqlalchemy.VARCHAR),
+        nullable=False)
+    __table_args__ = (
+        sqlalchemy.Index(
+            'idx_dataset_domain_tags_gin',
+            domain_tags,
+            postgresql_using="gin"),)
+
 
 class Owner(Base, DbMixin):
     __tablename__ = "owner"

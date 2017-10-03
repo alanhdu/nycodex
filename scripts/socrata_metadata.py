@@ -52,6 +52,7 @@ def main():
                 asset_type=resource['type'],
                 description=resource['description'],
                 domain_category=classification['domain_category'],
+                domain_tags=classification['domain_tags'],
                 id=resource['id'],
                 is_official=resource['provenance'] == 'official',
                 name=resource['name'],

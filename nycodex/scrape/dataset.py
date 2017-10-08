@@ -5,6 +5,7 @@ import typing
 import pandas as pd
 
 from nycodex import db
+from .exceptions import SocrataTypeError
 
 BASE = "https://data.cityofnewyork.us/api"
 
@@ -62,11 +63,9 @@ def dataset_columns(df: pd.DataFrame, types: typing.Iterable[str]
         elif ty == "money":
             ty = "MONEY"
         elif ty == "number":
-            if not pd.api.types.is_number(df[field]):
-                msg = f"{field} must be a number, got {df[field].dtype}"
-                raise TypeError(msg)
-
-            if pd.api.types.is_integer(df[field]):
+            if not pd.api.types.is_numeric_dtype(df[field]):
+                raise SocrataTypeError(field, ty, df[field].dtype)
+            elif pd.api.types.is_integer_dtype(df[field]):
                 # TODO(alan): Handle nullable integers
                 min, max = df[field].min(), df[field].max()
                 if -32768 < min and max < 32767:
@@ -79,7 +78,10 @@ def dataset_columns(df: pd.DataFrame, types: typing.Iterable[str]
                 ty = "DOUBLE PRECISION"
         elif ty == "percent":
             ty = "NUMERIC(6, 3)"
-            df[field] = df[field].str[:-1].astype(float)
+            try:
+                df[field] = df[field].str[:-1].astype(float)
+            except ValueError as e:
+                raise SocrataTypeError(field, ty, df[field].dtype) from e
         elif ty == "point":
             raise RuntimeError("Cannot deal with point data yet")
         else:

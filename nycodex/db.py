@@ -40,8 +40,7 @@ class AssetType(enum.Enum):
 
 
 # TODO(alan): Use Array of Enums when we figure out how
-@enum.unique
-class DataType(enum.Enum):
+class DataType:
     CALENDAR_DATE = 'calendar_date'
     CHECKBOX = 'checkbox'
     DATE = 'date'

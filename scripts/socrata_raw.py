@@ -24,7 +24,7 @@ def main():
     )   # yapf: disable
 
     for dataset_id, dataset_type, names, fields, types, in query:
-        print("INSERTING", dataset_id)
+        print("SCRAPING", dataset_id)
         if dataset_type == db.AssetType.DATASET:
             try:
                 scrape_dataset(dataset_id, names, fields, types)

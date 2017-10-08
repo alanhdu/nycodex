@@ -26,7 +26,8 @@ def scrape_dataset(dataset_id, names, fields, types) -> None:
     df.columns = fields  # replace with normalized names
 
     columns, df = dataset_columns(df, types)
-
+    columns = ", ".join(f"\"{name}\" {ty}"
+                        for name, ty in zip(df.columns, columns))
     with tempfile.TemporaryDirectory() as tmpdir:
         path = os.path.abspath(os.path.join(tmpdir, "data.csv"))
         df.to_csv(path, header=False, index=False)
@@ -52,10 +53,9 @@ def scrape_dataset(dataset_id, names, fields, types) -> None:
 
 
 def dataset_columns(df: pd.DataFrame, types: typing.Iterable[str]
-                    ) -> typing.Tuple[str, pd.DataFrame]:
+                    ) -> typing.Tuple[typing.List[str], pd.DataFrame]:
     columns = []
     for field, ty in zip(df.columns, types):
-        # TODO(alan): ENUM
         if ty == db.DataType.CALENDAR_DATE:
             ty = "TIMESTAMP WITHOUT TIME ZONE"
         elif ty == db.DataType.CHECKBOX:
@@ -85,13 +85,13 @@ def dataset_columns(df: pd.DataFrame, types: typing.Iterable[str]
                 ty = "DOUBLE PRECISION"
         elif ty == db.DataType.PERCENT:
             ty = "NUMERIC(6, 3)"
+            if (df[field].dropna().str[-1] != "%").any():
+                raise SocrataTypeError(field, ty, df[field].dtype)
             try:
                 df[field] = df[field].str[:-1].astype(float)
             except ValueError as e:
-                raise SocrataTypeError(field, ty, df[field].dtype) from e
+                raise SocrataTypeError(field, ty, df[field].dtype)
         else:
             raise RuntimeError(f"Unknown datatype {ty}")
-
-        columns.append((field, ty))
-    columns = ", ".join(f"\"{name}\" {ty}" for name, ty in columns)
+        columns.append(ty)
     return columns, df

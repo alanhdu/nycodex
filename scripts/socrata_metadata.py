@@ -58,7 +58,11 @@ def main():
                 name=resource['name'],
                 owner_id=owner['id'],
                 updated_at=dateutil.parser.parse(
-                    resource['updatedAt']).astimezone(pytz.utc))
+                    resource['updatedAt']).astimezone(pytz.utc),
+                column_names=resource['columns_name'],
+                column_field_names=resource['columns_field_name'],
+                column_descriptions=resource['columns_description'],
+                column_types=resource['columns_datatype'])
 
     print("INSERTING", len(datasets), "datasets")
 

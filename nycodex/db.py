@@ -47,12 +47,11 @@ class DataType(enum.Enum):
     DATE = 'date'
     EMAIL = 'email'
     HTML = 'html'
-    LOCATION = 'locatoin'
+    LOCATION = 'location'
     MONEY = 'money'
     NUMBER = 'number'
     PERCENT = 'percent'
     PHONE = 'phone'
-    POINT = 'point'
     TEXT = 'text'
     URL = 'url'
 
@@ -118,7 +117,7 @@ class Dataset(Base, DbMixin):
     __table_args__ = (sqlalchemy.Index(
         'idx_dataset_domain_tags_gin', domain_tags, postgresql_using="gin"), )
 
-    # TODO(alan): WTF is this difference btween name and field_name?
+    # TODO(alan): Use Postgresql composite type
     column_names = sqlalchemy.Column(
         postgresql.ARRAY(sqlalchemy.TEXT), nullable=False)
     column_field_names = sqlalchemy.Column(

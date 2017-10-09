@@ -4,16 +4,15 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-
 requests = "*"
 sqlalchemy = "*"
 "psycopg2" = "*"
 nycodex = {path = ".", editable = true}
 "python-dateutil" = "*"
 pytz = "*"
+pandas = "*"
 
 [dev-packages]
-
 "flake8" = "*"
 "flake8-bugbear" = "*"
 "flake8-import-order" = "*"
@@ -21,12 +20,6 @@ pytz = "*"
 "testing.postgresql" = "*"
 codecov = "*"
 pytest = "*"
-
-
-
-
-
-
 
 [requires]
 python_version = "3.6"

@@ -39,6 +39,22 @@ class AssetType(enum.Enum):
     MAP = 'map'
 
 
+# TODO(alan): Use Array of Enums when we figure out how
+class DataType:
+    CALENDAR_DATE = 'calendar_date'
+    CHECKBOX = 'checkbox'
+    DATE = 'date'
+    EMAIL = 'email'
+    HTML = 'html'
+    LOCATION = 'location'
+    MONEY = 'money'
+    NUMBER = 'number'
+    PERCENT = 'percent'
+    PHONE = 'phone'
+    TEXT = 'text'
+    URL = 'url'
+
+
 class DbMixin:
     __table__: sqlalchemy.Table
 
@@ -99,6 +115,16 @@ class Dataset(Base, DbMixin):
         sqlalchemy.ARRAY(sqlalchemy.VARCHAR), nullable=False)
     __table_args__ = (sqlalchemy.Index(
         'idx_dataset_domain_tags_gin', domain_tags, postgresql_using="gin"), )
+
+    # TODO(alan): Use Postgresql composite type
+    column_names = sqlalchemy.Column(
+        postgresql.ARRAY(sqlalchemy.TEXT), nullable=False)
+    column_field_names = sqlalchemy.Column(
+        postgresql.ARRAY(sqlalchemy.TEXT), nullable=False)
+    column_types = sqlalchemy.Column(
+        postgresql.ARRAY(sqlalchemy.TEXT), nullable=False)
+    column_descriptions = sqlalchemy.Column(
+        postgresql.ARRAY(sqlalchemy.TEXT), nullable=False)
 
 
 class Owner(Base, DbMixin):

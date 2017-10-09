@@ -47,7 +47,10 @@ class DbMixin:
                instances: typing.Iterable["DbMixin"]) -> None:
         keys = cls.__table__.c.keys()
         for instance in instances:
-            data = {key: getattr(instance, key) for key in keys}
+            data = {
+                key: getattr(instance, key)
+                for key in keys if getattr(instance, key) is not None
+            }
             insert = (postgresql.insert(cls.__table__).values(**data)
                       .on_conflict_do_update(
                           index_elements=[cls.__table__.c.id],
@@ -93,13 +96,9 @@ class Dataset(Base, DbMixin):
         postgresql.ENUM(sql_enum(AssetType), name="AssetType"), nullable=True)
 
     domain_tags = sqlalchemy.Column(
-        sqlalchemy.ARRAY(sqlalchemy.VARCHAR),
-        nullable=False)
-    __table_args__ = (
-        sqlalchemy.Index(
-            'idx_dataset_domain_tags_gin',
-            domain_tags,
-            postgresql_using="gin"),)
+        sqlalchemy.ARRAY(sqlalchemy.VARCHAR), nullable=False)
+    __table_args__ = (sqlalchemy.Index(
+        'idx_dataset_domain_tags_gin', domain_tags, postgresql_using="gin"), )
 
 
 class Owner(Base, DbMixin):

@@ -122,6 +122,8 @@ class Dataset(Base, DbMixin):
         postgresql.ARRAY(sqlalchemy.TEXT), nullable=False)
     column_field_names = sqlalchemy.Column(
         postgresql.ARRAY(sqlalchemy.TEXT), nullable=False)
+    column_sql_names = sqlalchemy.Column(
+        postgresql.ARRAY(sqlalchemy.VARCHAR(63)), nullable=False)
     column_types = sqlalchemy.Column(
         postgresql.ARRAY(sqlalchemy.TEXT), nullable=False)
     column_descriptions = sqlalchemy.Column(

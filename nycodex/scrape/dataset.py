@@ -6,7 +6,7 @@ import pandas as pd
 
 from nycodex import db
 from nycodex.logging import get_logger
-from .exceptions import SocrataTypeError
+from . import exceptions
 
 BASE = "https://data.cityofnewyork.us/api"
 
@@ -16,9 +16,9 @@ logger = get_logger(__name__)
 def scrape_dataset(dataset_id, names, fields, types) -> None:
     log = logger.bind(dataset_id=dataset_id)
 
-    if any(len(f) > 63 for f in fields):
-        # TODO(alan): Handle really long column names
-        return
+    for f in fields:
+        if len(f) > 63:
+            raise exceptions.SocrataColumnNameTooLong(f)
 
     df = pd.read_csv(
         f"{BASE}/views/{dataset_id}/rows.csv?accessType=DOWNLOAD",
@@ -77,7 +77,7 @@ def dataset_columns(df: pd.DataFrame, types: typing.Iterable[str]
             ty = "MONEY"
         elif ty == db.DataType.NUMBER:
             if not pd.api.types.is_numeric_dtype(df[field]):
-                raise SocrataTypeError(field, ty, df[field].dtype)
+                raise exceptions.SocrataTypeError(field, ty, df[field].dtype)
             elif pd.api.types.is_integer_dtype(df[field]):
                 # TODO(alan): Handle nullable integers
                 min, max = df[field].min(), df[field].max()
@@ -92,11 +92,11 @@ def dataset_columns(df: pd.DataFrame, types: typing.Iterable[str]
         elif ty == db.DataType.PERCENT:
             ty = "NUMERIC(6, 3)"
             if (df[field].dropna().str[-1] != "%").any():
-                raise SocrataTypeError(field, ty, df[field].dtype)
+                raise exceptions.SocrataTypeError(field, ty, df[field].dtype)
             try:
                 df[field] = df[field].str[:-1].astype(float)
             except ValueError as e:
-                raise SocrataTypeError(field, ty, df[field].dtype)
+                raise exceptions.SocrataTypeError(field, ty, df[field].dtype)
         else:
             raise RuntimeError(f"Unknown datatype {ty}")
         columns.append(ty)

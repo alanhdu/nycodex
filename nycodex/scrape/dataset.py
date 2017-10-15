@@ -5,11 +5,10 @@ import typing
 import geoalchemy2
 import geopandas as gpd
 import pandas as pd
-import requests
 
 from nycodex import db
 from nycodex.logging import get_logger
-from . import exceptions
+from . import exceptions, utils
 
 BASE = "https://data.cityofnewyork.us/api"
 
@@ -20,13 +19,11 @@ def scrape_geojson(dataset_id: str) -> None:
     log = logger.bind(dataset_id=dataset_id, method="scrape_geojson")
 
     params = {"method": "export", "format": "GeoJSON"}
-    r = requests.get(f"{BASE}/geospatial/{dataset_id}", params=params)
-
-    with tempfile.NamedTemporaryFile() as fout:
-        fout.write(r.content)
-        fout.flush()
-
-        df = gpd.read_file(fout.name)
+    url = f"{BASE}/geospatial/{dataset_id}"
+    with utils.download_file(url, params=params) as fname:
+        if os.path.getsize(fname) > 128 * 1024 * 1024:  # 128 MB
+            raise exceptions.SocrataTooLarge
+        df = gpd.read_file(fname)
 
     for column in df.columns:
         if column == 'geometry':
@@ -86,13 +83,15 @@ def scrape_dataset(dataset_id, names, fields, types) -> None:
         if len(f) > 63:
             raise exceptions.SocrataColumnNameTooLong(f)
 
-    df = pd.read_csv(
-        f"{BASE}/views/{dataset_id}/rows.csv?accessType=DOWNLOAD",
-        dtype={
-            name: str
-            for name, ty in zip(names, types)
-            if ty not in {db.DataType.NUMBER, db.DataType.CHECKBOX}
-        })
+    url = f"{BASE}/views/{dataset_id}/rows.csv"
+    with utils.download_file(url, params={"accessType": "DOWNLOAD"}) as fname:
+        if os.path.getsize(fname) > 128 * 1024 * 1024:  # 128 MB
+            raise exceptions.SocrataTooLarge
+        df = pd.read_csv(fname, dtype={
+                name: str
+                for name, ty in zip(names, types)
+                if ty not in {db.DataType.NUMBER, db.DataType.CHECKBOX}
+            })  # yapf: disable
     df = df[names]  # Reorder columns
     df.columns = fields  # replace with normalized names
 

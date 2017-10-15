@@ -22,8 +22,11 @@ def scrape_geojson(dataset_id: str) -> None:
     url = f"{BASE}/geospatial/{dataset_id}"
     with utils.download_file(url, params=params) as fname:
         if os.path.getsize(fname) > 128 * 1024 * 1024:  # 128 MB
-            raise exceptions.SocrataTooLarge
-        df = gpd.read_file(fname)
+            raise exceptions.SocrataDatasetTooLarge
+        try:
+            df = gpd.read_file(fname)
+        except ValueError as e:
+            raise exceptions.SocrataParseError from e
 
     for column in df.columns:
         if column == 'geometry':
@@ -32,17 +35,17 @@ def scrape_geojson(dataset_id: str) -> None:
         try:
             df[column] = df[column].astype(int)
             continue
-        except ValueError:
+        except (ValueError, TypeError):
             pass
         try:
             df[column] = df[column].astype(float)
             continue
-        except ValueError:
+        except (ValueError, TypeError):
             pass
         try:
             df[column] = pd.to_datetime(df[column])
             continue
-        except ValueError:
+        except (ValueError, TypeError):
             pass
 
     log.info("Inserting")
@@ -86,12 +89,15 @@ def scrape_dataset(dataset_id, names, fields, types) -> None:
     url = f"{BASE}/views/{dataset_id}/rows.csv"
     with utils.download_file(url, params={"accessType": "DOWNLOAD"}) as fname:
         if os.path.getsize(fname) > 128 * 1024 * 1024:  # 128 MB
-            raise exceptions.SocrataTooLarge
-        df = pd.read_csv(fname, dtype={
-                name: str
-                for name, ty in zip(names, types)
-                if ty not in {db.DataType.NUMBER, db.DataType.CHECKBOX}
-            })  # yapf: disable
+            raise exceptions.SocrataDatasetTooLarge
+        try:
+            df = pd.read_csv(fname, dtype={
+                    name: str
+                    for name, ty in zip(names, types)
+                    if ty not in {db.DataType.NUMBER, db.DataType.CHECKBOX}
+                })  # yapf: disable
+        except pd.errors.ParserError as e:
+            raise exceptions.SocrataParseError from e
     df = df[names]  # Reorder columns
     df.columns = fields  # replace with normalized names
 
@@ -160,7 +166,7 @@ def dataset_columns(df: pd.DataFrame, types: typing.Iterable[str]
                 raise exceptions.SocrataTypeError(field, ty, df[field].dtype)
             try:
                 df[field] = df[field].str[:-1].astype(float)
-            except ValueError as e:
+            except (ValueError, TypeError) as e:
                 raise exceptions.SocrataTypeError(field, ty, df[field].dtype)
         else:
             raise RuntimeError(f"Unknown datatype {ty}")

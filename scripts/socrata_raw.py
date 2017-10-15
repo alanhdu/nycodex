@@ -2,7 +2,7 @@ import sqlalchemy
 
 from nycodex import db
 from nycodex.logging import get_logger
-from nycodex.scrape import scrape_dataset
+from nycodex.scrape import scrape_dataset, scrape_geojson
 from nycodex.scrape.exceptions import SocrataError
 
 BASE = "https://data.cityofnewyork.us/api"
@@ -27,23 +27,19 @@ def main():
         ]))
     )   # yapf: disable
 
-    for dataset_id, dataset_type, names, fields, types, in query:
-        log = logger.bind(dataset_id=dataset_id)
+    for dataset_id, dataset_type, names, fields, types in query:
+        log = logger.bind(dataset_id=dataset_id, dataset_type=dataset_type)
 
         log.info("Scraping dataset")
-        if dataset_type == db.AssetType.DATASET:
-            try:
+        try:
+            if dataset_type == db.AssetType.DATASET or names:
                 scrape_dataset(dataset_id, names, fields, types)
-            except SocrataError as e:
-                log.error("Failed to import dataset", exc_info=e)
-        elif dataset_type == db.AssetType.MAP:
-            log.warning("Skipping map")
-            # TODO(alan): PostGIS
-            # params = {"method": "export", "format": "GeoJSON"}
-            # requests.get(f"{BASE}/geospatial/{dataset_id}", params=params)
-            pass
-        else:
-            raise RuntimeWarning(f"Illegal dataset_type {dataset_type}")
+            elif dataset_type == db.AssetType.MAP:
+                scrape_geojson(dataset_id)
+            else:
+                log.warning("Illegal dataset_type")
+        except SocrataError as e:
+            log.error("Failed to import dataset", exc_info=e)
 
 
 if __name__ == "__main__":

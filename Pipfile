@@ -8,18 +8,20 @@ requests = "*"
 sqlalchemy = "*"
 "psycopg2" = "*"
 nycodex = {path = ".", editable = true}
-"python-dateutil" = "*"
+python-dateutil = "*"
 pytz = "*"
 pandas = "*"
+structlog = "*"
 
 [dev-packages]
 "flake8" = "*"
 "flake8-bugbear" = "*"
 "flake8-import-order" = "*"
-"pytest-cov" = "*"
+pytest-cov = "*"
 "testing.postgresql" = "*"
 codecov = "*"
 pytest = "*"
+colorama = "*"
 
 [requires]
 python_version = "3.6"

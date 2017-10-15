@@ -5,12 +5,17 @@ import typing
 import pandas as pd
 
 from nycodex import db
+from nycodex.logging import get_logger
 from .exceptions import SocrataTypeError
 
 BASE = "https://data.cityofnewyork.us/api"
 
+logger = get_logger(__name__)
+
 
 def scrape_dataset(dataset_id, names, fields, types) -> None:
+    log = logger.bind(dataset_id=dataset_id)
+
     if any(len(f) > 63 for f in fields):
         # TODO(alan): Handle really long column names
         return
@@ -36,7 +41,7 @@ def scrape_dataset(dataset_id, names, fields, types) -> None:
         os.chmod(tmpdir, 0o775)
         os.chmod(path, 0o775)
 
-        print("INSERTING", dataset_id)
+        log.info("Inserting dataset")
         with db.engine.begin() as conn:
             conn.execute(f"DROP TABLE IF EXISTS \"{dataset_id}\"")
             conn.execute(f"CREATE TABLE \"{dataset_id}\" ({columns})")
@@ -50,6 +55,7 @@ def scrape_dataset(dataset_id, names, fields, types) -> None:
             SET scraped_at = NOW()
             WHERE id = '{dataset_id}'
             """)
+        log.info("Insert Sucessful!")
 
 
 def dataset_columns(df: pd.DataFrame, types: typing.Iterable[str]

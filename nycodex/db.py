@@ -1,14 +1,15 @@
 import enum
-import os
 import typing
 
 import sqlalchemy
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.declarative import declarative_base
 
+from .config import DATABASE_URI
+
 Base = declarative_base()  # type: typing.Any
 
-engine = sqlalchemy.create_engine(os.environ["DATABASE_URI"])
+engine = sqlalchemy.create_engine(DATABASE_URI)
 Session = sqlalchemy.orm.sessionmaker(bind=engine)
 
 

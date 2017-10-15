@@ -1,9 +1,12 @@
 import sqlalchemy
 
 from nycodex import db
+from nycodex.logging import get_logger
 from nycodex.scrape import scrape_dataset, SocrataTypeError
 
 BASE = "https://data.cityofnewyork.us/api"
+
+logger = get_logger(__name__)
 
 
 def main():
@@ -24,12 +27,14 @@ def main():
     )   # yapf: disable
 
     for dataset_id, dataset_type, names, fields, types, in query:
-        print("SCRAPING", dataset_id)
+        log = logger.bind(dataset_id=dataset_id)
+
+        log.info("Scraping dataset")
         if dataset_type == db.AssetType.DATASET:
             try:
                 scrape_dataset(dataset_id, names, fields, types)
             except SocrataTypeError as e:
-                print(f"FAILED TO IMPORT {dataset_id}: {e}")
+                log.error("Failed to import dataset", exc_info=e)
         elif dataset_type == db.AssetType.MAP:
             # TODO(alan): PostGIS
             # params = {"method": "export", "format": "GeoJSON"}

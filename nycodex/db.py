@@ -1,4 +1,5 @@
 import enum
+import re
 import typing
 
 import sqlalchemy
@@ -38,6 +39,23 @@ class AssetType(enum.Enum):
     FILTER = 'filter'
     HREF = 'href'
     MAP = 'map'
+
+
+@enum.unique
+class Category(enum.Enum):
+    DEMOGRAPHICS = "demographics"
+    ECONOMY = "economy"
+    EDUCATION = "education"
+    ENVIRONMENT = "environment"
+    FINANCE = "finance"
+    HEALTH = "health"
+    HOUSING_DEVELOPMENT = "housing & development"
+    INFRASTRUCTURE = "infrastructure"
+    POLITICS = "politics"
+    PUBLIC_SAFETY = "public safety"
+    RECREATION = "recreation"
+    SOCIAL_SERVICES = "social services"
+    TRANSPORTATION = "transportation"
 
 
 # TODO(alan): Use Array of Enums when we figure out how
@@ -89,6 +107,22 @@ def sql_enum(enum: typing.Type[enum.Enum]):
     })  # yapf: disable
 
 
+class EnumArray(postgresql.ARRAY):
+    def bind_expression(self, bindvalue):
+        return sqlalchemy.cast(bindvalue, self)
+
+    def result_processor(self, dialect, coltype):
+        super_rp = super().result_processor(dialect, coltype)
+
+        def handle_raw_string(value):
+            inner = re.match(r"^{(.*)}$", value).group(1)
+            return inner.split(",")
+
+        def process(value):
+            return super_rp(handle_raw_string(value))
+        return process
+
+
 class Dataset(Base, DbMixin):
     __tablename__ = "dataset"
 
@@ -106,6 +140,9 @@ class Dataset(Base, DbMixin):
     scraped_at = sqlalchemy.Column(
         sqlalchemy.TIMESTAMP(timezone=True), nullable=True)
 
+    categories = sqlalchemy.Column(
+        EnumArray(postgresql.ENUM(sql_enum(Category), name="Category")),
+        nullable=True)
     domain_category = sqlalchemy.Column(
         postgresql.ENUM(sql_enum(DomainCategory), name="DomainCategory"),
         nullable=True)

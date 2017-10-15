@@ -111,6 +111,7 @@ def enum_values(enum: typing.Type[enum.Enum]):
     return [v.value for v in enum.__members__.values()]
 
 
+# http://docs.sqlalchemy.org/en/latest/dialects/postgresql.html#using-enum-with-array
 class EnumArray(postgresql.ARRAY):
     def bind_expression(self, bindvalue):
         return sqlalchemy.cast(bindvalue, self)

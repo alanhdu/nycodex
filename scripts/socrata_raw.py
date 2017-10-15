@@ -40,6 +40,9 @@ def main():
                 log.warning("Illegal dataset_type")
         except SocrataError as e:
             log.error("Failed to import dataset", exc_info=e)
+        except Exception as e:
+            log.critical(
+                "Failed to import datset with unknown exception", exc_info=e)
 
 
 if __name__ == "__main__":

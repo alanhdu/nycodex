@@ -53,7 +53,9 @@ def scrape_geojson(dataset_id: str) -> None:
     # TODO: Use ogr2ogr2?
     # srid 4326 for latitude/longitude coordinates
     ty = df.geometry.map(lambda x: x.geometryType()).unique()
-    assert len(ty) == 1
+    if len(ty) != 1:
+        msg = f"Too many geometry types detected: {ty}"
+        raise exceptions.SocrataParseError(msg)
     ty = ty[0]
 
     df['geometry'] = df['geometry'].map(

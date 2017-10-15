@@ -1,3 +1,4 @@
+import hashlib
 import typing
 
 import dateutil.parser
@@ -10,7 +11,7 @@ BASE = "https://api.us.socrata.com/api/catalog/v1"
 DOMAIN = "data.cityofnewyork.us"
 
 
-def api(path: str, params: typing.Dict[str, str] = None):
+def api(path: str, params: typing.Dict[str, str] = None) -> requests.Response:
     if params is None:
         params = {}
     params.update({
@@ -23,6 +24,14 @@ def api(path: str, params: typing.Dict[str, str] = None):
     else:
         url = BASE
     return requests.get(url, params=params)
+
+
+def shorten(s: str) -> str:
+    if len(s) < 63:
+        return s
+    beginning = s[:30]
+    ending = hashlib.md5(s.encode()).hexdigest()    # 32 chars
+    return f"{beginning}-{ending}"
 
 
 def get_facets():
@@ -48,6 +57,14 @@ def main():
             owners[owner['id']] = db.Owner(
                 id=owner['id'], name=owner['display_name'])
             assert resource['provenance'] in {"official", 'community'}
+
+            assert 1 == len({
+                len(resource['columns_name']),
+                len(resource['columns_field_name']),
+                len(resource['columns_description']),
+                len(resource['columns_datatype'])
+            })
+
             datasets[resource['id']] = db.Dataset(
                 asset_type=resource['type'],
                 description=resource['description'],
@@ -62,7 +79,10 @@ def main():
                 column_names=resource['columns_name'],
                 column_field_names=resource['columns_field_name'],
                 column_descriptions=resource['columns_description'],
-                column_types=resource['columns_datatype'])
+                column_types=resource['columns_datatype'],
+                column_sql_names=[
+                    shorten(field) for field in resource['columns_field_name']
+                ])
 
     print("INSERTING", len(datasets), "datasets")
 

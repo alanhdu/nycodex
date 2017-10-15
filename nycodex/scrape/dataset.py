@@ -2,31 +2,102 @@ import os
 import tempfile
 import typing
 
+import geoalchemy2
+import geopandas as gpd
 import pandas as pd
 
 from nycodex import db
 from nycodex.logging import get_logger
-from .exceptions import SocrataTypeError
+from . import exceptions, utils
 
 BASE = "https://data.cityofnewyork.us/api"
 
 logger = get_logger(__name__)
 
 
+def scrape_geojson(dataset_id: str) -> None:
+    log = logger.bind(dataset_id=dataset_id, method="scrape_geojson")
+
+    params = {"method": "export", "format": "GeoJSON"}
+    url = f"{BASE}/geospatial/{dataset_id}"
+    with utils.download_file(url, params=params) as fname:
+        if os.path.getsize(fname) > 128 * 1024 * 1024:  # 128 MB
+            raise exceptions.SocrataDatasetTooLarge
+        try:
+            df = gpd.read_file(fname)
+        except ValueError as e:
+            raise exceptions.SocrataParseError from e
+
+    for column in df.columns:
+        if column == 'geometry':
+            continue
+        # Bad type inference
+        try:
+            df[column] = df[column].astype(int)
+            continue
+        except (ValueError, TypeError):
+            pass
+        try:
+            df[column] = df[column].astype(float)
+            continue
+        except (ValueError, TypeError):
+            pass
+        try:
+            df[column] = pd.to_datetime(df[column])
+            continue
+        except (ValueError, TypeError):
+            pass
+
+    log.info("Inserting")
+
+    # TODO: Use ogr2ogr2?
+    # srid 4326 for latitude/longitude coordinates
+    ty = df.geometry.map(lambda x: x.geometryType()).unique()
+    assert len(ty) == 1
+    ty = ty[0]
+
+    df['geometry'] = df['geometry'].map(
+        lambda x: geoalchemy2.WKTElement(x.wkt, srid=4326))
+    df.to_sql(
+        f"{dataset_id}-new",
+        db.engine,
+        if_exists='replace',
+        index=False,
+        dtype={"geometry": geoalchemy2.Geometry(geometry_type=ty, srid=4326)})
+
+    with db.engine.begin() as trans:
+        trans.execute(f"DROP TABLE IF EXISTS\"{dataset_id}\"")
+        trans.execute(f"""
+        ALTER TABLE \"{dataset_id}-new\"
+        RENAME TO "{dataset_id}"
+        """)
+        trans.execute(f"""
+        UPDATE dataset
+        SET scraped_at = NOW()
+        WHERE id = '{dataset_id}'
+        """)
+    log.info("Successfully inserted")
+
+
 def scrape_dataset(dataset_id, names, fields, types) -> None:
     log = logger.bind(dataset_id=dataset_id)
 
-    if any(len(f) > 63 for f in fields):
-        # TODO(alan): Handle really long column names
-        return
+    for f in fields:
+        if len(f) > 63:
+            raise exceptions.SocrataColumnNameTooLong(f)
 
-    df = pd.read_csv(
-        f"{BASE}/views/{dataset_id}/rows.csv?accessType=DOWNLOAD",
-        dtype={
-            name: str
-            for name, ty in zip(names, types)
-            if ty not in {db.DataType.NUMBER, db.DataType.CHECKBOX}
-        })
+    url = f"{BASE}/views/{dataset_id}/rows.csv"
+    with utils.download_file(url, params={"accessType": "DOWNLOAD"}) as fname:
+        if os.path.getsize(fname) > 128 * 1024 * 1024:  # 128 MB
+            raise exceptions.SocrataDatasetTooLarge
+        try:
+            df = pd.read_csv(fname, dtype={
+                    name: str
+                    for name, ty in zip(names, types)
+                    if ty not in {db.DataType.NUMBER, db.DataType.CHECKBOX}
+                })  # yapf: disable
+        except pd.errors.ParserError as e:
+            raise exceptions.SocrataParseError from e
     df = df[names]  # Reorder columns
     df.columns = fields  # replace with normalized names
 
@@ -77,7 +148,7 @@ def dataset_columns(df: pd.DataFrame, types: typing.Iterable[str]
             ty = "MONEY"
         elif ty == db.DataType.NUMBER:
             if not pd.api.types.is_numeric_dtype(df[field]):
-                raise SocrataTypeError(field, ty, df[field].dtype)
+                raise exceptions.SocrataTypeError(field, ty, df[field].dtype)
             elif pd.api.types.is_integer_dtype(df[field]):
                 # TODO(alan): Handle nullable integers
                 min, max = df[field].min(), df[field].max()
@@ -92,11 +163,11 @@ def dataset_columns(df: pd.DataFrame, types: typing.Iterable[str]
         elif ty == db.DataType.PERCENT:
             ty = "NUMERIC(6, 3)"
             if (df[field].dropna().str[-1] != "%").any():
-                raise SocrataTypeError(field, ty, df[field].dtype)
+                raise exceptions.SocrataTypeError(field, ty, df[field].dtype)
             try:
                 df[field] = df[field].str[:-1].astype(float)
-            except ValueError as e:
-                raise SocrataTypeError(field, ty, df[field].dtype)
+            except (ValueError, TypeError) as e:
+                raise exceptions.SocrataTypeError(field, ty, df[field].dtype)
         else:
             raise RuntimeError(f"Unknown datatype {ty}")
         columns.append(ty)

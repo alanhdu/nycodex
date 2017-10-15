@@ -107,6 +107,10 @@ def sql_enum(enum: typing.Type[enum.Enum]):
     })  # yapf: disable
 
 
+def enum_values(enum: typing.Type[enum.Enum]):
+    return [v.value for v in enum.__members__.values()]
+
+
 class EnumArray(postgresql.ARRAY):
     def bind_expression(self, bindvalue):
         return sqlalchemy.cast(bindvalue, self)
@@ -141,7 +145,7 @@ class Dataset(Base, DbMixin):
         sqlalchemy.TIMESTAMP(timezone=True), nullable=True)
 
     categories = sqlalchemy.Column(
-        EnumArray(postgresql.ENUM(sql_enum(Category), name="Category")),
+        EnumArray(postgresql.ENUM(*enum_values(Category), name="Category")),
         nullable=True)
     domain_category = sqlalchemy.Column(
         postgresql.ENUM(sql_enum(DomainCategory), name="DomainCategory"),

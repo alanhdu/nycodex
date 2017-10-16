@@ -101,12 +101,9 @@ class DbMixin:
         return self.to_dict() == other.to_dict()
 
 
-def sql_enum(enum: typing.Type[enum.Enum]):
-    return type(enum.__name__, (), {
-        "__members__": {v.value: v for v in enum.__members__.values()}
-    })  # yapf: disable
-
-
+# Temporary, as SQLAlchemy only reads keys from enums currently; should
+# hopefully be fixed in 1.3 as mentioned in the following issue:
+# https://bitbucket.org/zzzeek/sqlalchemy/issues/3906/support-option-persisting-of-enum-values#comment-40130278
 def enum_values(enum: typing.Type[enum.Enum]):
     return [v.value for v in enum.__members__.values()]
 
@@ -149,10 +146,11 @@ class Dataset(Base, DbMixin):
         EnumArray(postgresql.ENUM(*enum_values(Category), name="Category")),
         nullable=True)
     domain_category = sqlalchemy.Column(
-        postgresql.ENUM(sql_enum(DomainCategory), name="DomainCategory"),
+        postgresql.ENUM(*enum_values(DomainCategory), name="DomainCategory"),
         nullable=True)
     asset_type = sqlalchemy.Column(
-        postgresql.ENUM(sql_enum(AssetType), name="AssetType"), nullable=True)
+        postgresql.ENUM(*enum_values(AssetType), name="AssetType"),
+        nullable=True)
 
     domain_tags = sqlalchemy.Column(
         sqlalchemy.ARRAY(sqlalchemy.VARCHAR), nullable=False)

@@ -68,6 +68,7 @@ def main():
             datasets[resource['id']] = db.Dataset(
                 asset_type=resource['type'],
                 description=resource['description'],
+                categories=classification['categories'],
                 domain_category=classification['domain_category'],
                 domain_tags=classification['domain_tags'],
                 id=resource['id'],

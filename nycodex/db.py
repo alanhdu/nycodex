@@ -133,10 +133,13 @@ class Dataset(Base, DbMixin):
     name = sqlalchemy.Column(sqlalchemy.VARCHAR, nullable=False)
     description = sqlalchemy.Column(sqlalchemy.TEXT, nullable=False)
     is_official = sqlalchemy.Column(sqlalchemy.BOOLEAN, nullable=False)
+    attribution = sqlalchemy.Column(sqlalchemy.VARCHAR, nullable=False)
 
     owner_id = sqlalchemy.Column(
         sqlalchemy.CHAR(9), sqlalchemy.ForeignKey("owner.id"))
 
+    created_at = sqlalchemy.Column(
+        sqlalchemy.TIMESTAMP(timezone=True), nullable=False)
     updated_at = sqlalchemy.Column(
         sqlalchemy.TIMESTAMP(timezone=True), nullable=False)
     scraped_at = sqlalchemy.Column(
@@ -151,6 +154,9 @@ class Dataset(Base, DbMixin):
     asset_type = sqlalchemy.Column(
         postgresql.ENUM(*enum_values(AssetType), name="AssetType"),
         nullable=True)
+    dataset_agency = sqlalchemy.Column(sqlalchemy.VARCHAR, nullable=False)
+    is_auto_updated = sqlalchemy.Column(sqlalchemy.BOOLEAN, nullable=False)
+    update_frequency = sqlalchemy.Column(sqlalchemy.VARCHAR, nullable=False)
 
     domain_tags = sqlalchemy.Column(
         sqlalchemy.ARRAY(sqlalchemy.VARCHAR), nullable=False)

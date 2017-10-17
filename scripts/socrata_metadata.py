@@ -53,6 +53,10 @@ def main():
             owner = result['owner']
             classification = result['classification']
             resource = result['resource']
+            domain_metadata = {
+                metadata['key']: metadata['value']
+                for metadata in classification['domain_metadata']
+            }
 
             owners[owner['id']] = db.Owner(
                 id=owner['id'], name=owner['display_name'])
@@ -67,14 +71,19 @@ def main():
 
             datasets[resource['id']] = db.Dataset(
                 asset_type=resource['type'],
+                attribution=resource['attribution'],
+                dataset_agency=domain_metadata['Dataset-Information_Agency'],
                 description=resource['description'],
                 categories=classification['categories'],
+                created_at=resource['createdAt'],
                 domain_category=classification['domain_category'],
                 domain_tags=classification['domain_tags'],
                 id=resource['id'],
+                is_auto_updated=domain_metadata['Update_Automation'] == 'Yes',
                 is_official=resource['provenance'] == 'official',
                 name=resource['name'],
                 owner_id=owner['id'],
+                update_frequency=domain_metadata['Update_Update-Frequency'],
                 updated_at=dateutil.parser.parse(
                     resource['updatedAt']).astimezone(pytz.utc),
                 column_names=resource['columns_name'],

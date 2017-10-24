@@ -1,5 +1,3 @@
-import sqlalchemy
-
 from nycodex import db
 from nycodex.logging import get_logger
 from nycodex.scrape import scrape_dataset, scrape_geojson
@@ -12,32 +10,27 @@ logger = get_logger(__name__)
 
 def main():
     session = db.Session()
-    query = (
-        session.query(
-            db.Dataset.id, db.Dataset.asset_type,
-            db.Dataset.column_names, db.Dataset.column_sql_names,
-            db.Dataset.column_types
-        )
-        .filter(sqlalchemy.or_(
-            db.Dataset.scraped_at.is_(None),
-            db.Dataset.scraped_at < db.Dataset.updated_at))
-        .filter(db.Dataset.asset_type.in_([
-            db.AssetType.DATASET.value,
-            db.AssetType.MAP.value,
-        ]))
-    )   # yapf: disable
-
-    for dataset_id, dataset_type, names, fields, types in query:
-        log = logger.bind(dataset_id=dataset_id, dataset_type=dataset_type)
-
-        log.info("Scraping dataset")
+    while True:
         try:
-            if dataset_type == db.AssetType.DATASET or names:
-                scrape_dataset(dataset_id, names, fields, types)
-            elif dataset_type == db.AssetType.MAP:
-                scrape_geojson(dataset_id)
-            else:
-                log.warning("Illegal dataset_type")
+            with db.queue.next_row_to_scrape() as (trans, dataset_id):
+                if dataset_id is None:
+                    break
+                # TODO(alan): Use same transaction connection for this query
+                dataset_type, names, fields, types = session.query(
+                    db.Dataset.asset_type, db.Dataset.column_names,
+                    db.Dataset.column_sql_names, db.Dataset.column_types
+                ).filter(db.Dataset.id == dataset_id).first()   # yapf: disable
+
+                log = logger.bind(
+                    dataset_id=dataset_id, dataset_type=dataset_type)
+                log.info(f"Scraping dataset {dataset_id}")
+
+                if dataset_type == db.AssetType.DATASET or names:
+                    scrape_dataset(trans, dataset_id, names, fields, types)
+                elif dataset_type == db.AssetType.MAP:
+                    scrape_geojson(trans, dataset_id)
+                else:
+                    log.warning("Illegal dataset_type")
         except SocrataError as e:
             log.error("Failed to import dataset", exc_info=e)
         except Exception as e:

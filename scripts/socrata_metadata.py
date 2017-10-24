@@ -6,6 +6,7 @@ import pytz
 import requests
 
 from nycodex import db
+from nycodex.logging import get_logger
 
 BASE = "https://api.us.socrata.com/api/catalog/v1"
 DOMAIN = "data.cityofnewyork.us"
@@ -30,7 +31,7 @@ def shorten(s: str) -> str:
     if len(s) < 63:
         return s
     beginning = s[:30]
-    ending = hashlib.md5(s.encode()).hexdigest()    # 32 chars
+    ending = hashlib.md5(s.encode()).hexdigest()  # 32 chars
     return f"{beginning}-{ending}"
 
 
@@ -41,64 +42,71 @@ def get_facets():
         pass
 
 
+def parse_json(result: dict) -> db.Dataset:
+    owner = result['owner']
+    classification = result['classification']
+    resource = result['resource']
+    domain_metadata = {
+        metadata['key']: metadata['value']
+        for metadata in classification['domain_metadata']
+    }
+
+    assert resource['provenance'] in {"official", 'community'}
+
+    assert 1 == len({
+        len(resource['columns_name']),
+        len(resource['columns_field_name']),
+        len(resource['columns_description']),
+        len(resource['columns_datatype'])
+    })
+
+    return db.Dataset(
+        asset_type=resource['type'],
+        attribution=resource['attribution'],
+        dataset_agency=domain_metadata.get('Dataset-Information_Agency'),
+        description=resource['description'],
+        categories=classification['categories'],
+        created_at=resource['createdAt'],
+        domain_category=classification['domain_category'],
+        domain_tags=classification['domain_tags'],
+        id=resource['id'],
+        is_auto_updated=domain_metadata.get('Update_Automation') == 'Yes',
+        is_official=resource['provenance'] == 'official',
+        name=resource['name'],
+        owner_id=owner['id'],
+        update_frequency=domain_metadata.get('Update_Update-Frequency'),
+        updated_at=dateutil.parser.parse(resource['updatedAt']).astimezone(
+            pytz.utc),
+        column_names=resource['columns_name'],
+        column_field_names=resource['columns_field_name'],
+        column_descriptions=resource['columns_description'],
+        column_types=resource['columns_datatype'],
+        column_sql_names=[
+            shorten(field) for field in resource['columns_field_name']
+        ])
+
+
 def main():
+    log = get_logger(__name__)
+
     db.Base.metadata.create_all(db.engine)
 
-    owners = {}
+    log.info("Scraping datasets")
     datasets = {}
-
     for category in db.DomainCategory.__members__.values():
         r = api("", params={"categories": category.value, "limit": 10000})
         for result in r.json()['results']:
-            owner = result['owner']
-            classification = result['classification']
-            resource = result['resource']
-            domain_metadata = {
-                metadata['key']: metadata['value']
-                for metadata in classification['domain_metadata']
-            }
+            d = parse_json(result)
+            datasets[d.id] = d
 
-            owners[owner['id']] = db.Owner(
-                id=owner['id'], name=owner['display_name'])
-            assert resource['provenance'] in {"official", 'community'}
-
-            assert 1 == len({
-                len(resource['columns_name']),
-                len(resource['columns_field_name']),
-                len(resource['columns_description']),
-                len(resource['columns_datatype'])
-            })
-
-            datasets[resource['id']] = db.Dataset(
-                asset_type=resource['type'],
-                attribution=resource['attribution'],
-                dataset_agency=domain_metadata['Dataset-Information_Agency'],
-                description=resource['description'],
-                categories=classification['categories'],
-                created_at=resource['createdAt'],
-                domain_category=classification['domain_category'],
-                domain_tags=classification['domain_tags'],
-                id=resource['id'],
-                is_auto_updated=domain_metadata['Update_Automation'] == 'Yes',
-                is_official=resource['provenance'] == 'official',
-                name=resource['name'],
-                owner_id=owner['id'],
-                update_frequency=domain_metadata['Update_Update-Frequency'],
-                updated_at=dateutil.parser.parse(
-                    resource['updatedAt']).astimezone(pytz.utc),
-                column_names=resource['columns_name'],
-                column_field_names=resource['columns_field_name'],
-                column_descriptions=resource['columns_description'],
-                column_types=resource['columns_datatype'],
-                column_sql_names=[
-                    shorten(field) for field in resource['columns_field_name']
-                ])
-
-    print("INSERTING", len(datasets), "datasets")
-
+    log.info(f"Inserting {len(datasets)} datasets")
     with db.engine.connect() as conn:
-        db.Owner.upsert(conn, owners.values())
         db.Dataset.upsert(conn, datasets.values())
+
+        log.info(f"Adding jobs to queue")
+        db.queue.update_from_metadata(conn)
+
+    log.info("Complete!")
 
 
 if __name__ == "__main__":

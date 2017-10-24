@@ -1,17 +1,10 @@
 import enum
-import re
-import typing
 
 import sqlalchemy
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.ext.declarative import declarative_base
 
-from .config import DATABASE_URI
-
-Base = declarative_base()  # type: typing.Any
-
-engine = sqlalchemy.create_engine(DATABASE_URI)
-Session = sqlalchemy.orm.sessionmaker(bind=engine)
+from .base import Base
+from .utils import DbMixin, enum_values, EnumArray
 
 
 @enum.unique
@@ -74,89 +67,35 @@ class DataType:
     URL = 'url'
 
 
-class DbMixin:
-    __table__: sqlalchemy.Table
-
-    @classmethod
-    def upsert(cls, conn: sqlalchemy.engine.base.Connection,
-               instances: typing.Iterable["DbMixin"]) -> None:
-        keys = cls.__table__.c.keys()
-        for instance in instances:
-            data = {
-                key: getattr(instance, key)
-                for key in keys if getattr(instance, key) is not None
-            }
-            insert = (postgresql.insert(cls.__table__).values(**data)
-                      .on_conflict_do_update(
-                          index_elements=[cls.__table__.c.id],
-                          set_={k: data[k]
-                                for k in data if k != 'id'}))
-            conn.execute(insert)
-
-    def to_dict(self):
-        keys = self.__table__.c.keys()
-        return {key: getattr(self, key) for key in keys}
-
-    def __eq__(self, other):
-        return self.to_dict() == other.to_dict()
-
-
-# Temporary, as SQLAlchemy only reads keys from enums currently; should
-# hopefully be fixed in 1.3 as mentioned in the following issue:
-# https://bitbucket.org/zzzeek/sqlalchemy/issues/3906/support-option-persisting-of-enum-values#comment-40130278
-def enum_values(enum: typing.Type[enum.Enum]):
-    return [v.value for v in enum.__members__.values()]
-
-
-# http://docs.sqlalchemy.org/en/latest/dialects/postgresql.html#using-enum-with-array
-class EnumArray(postgresql.ARRAY):
-    def bind_expression(self, bindvalue):
-        return sqlalchemy.cast(bindvalue, self)
-
-    def result_processor(self, dialect, coltype):
-        super_rp = super().result_processor(dialect, coltype)
-
-        def handle_raw_string(value):
-            inner = re.match(r"^{(.*)}$", value).group(1)
-            return inner.split(",")
-
-        def process(value):
-            return super_rp(handle_raw_string(value))
-        return process
-
-
 class Dataset(Base, DbMixin):
     __tablename__ = "dataset"
 
     id = sqlalchemy.Column(sqlalchemy.CHAR(9), primary_key=True)
+    owner_id = sqlalchemy.Column(sqlalchemy.CHAR(9), nullable=False)
 
     name = sqlalchemy.Column(sqlalchemy.VARCHAR, nullable=False)
     description = sqlalchemy.Column(sqlalchemy.TEXT, nullable=False)
     is_official = sqlalchemy.Column(sqlalchemy.BOOLEAN, nullable=False)
-    attribution = sqlalchemy.Column(sqlalchemy.VARCHAR, nullable=False)
-
-    owner_id = sqlalchemy.Column(
-        sqlalchemy.CHAR(9), sqlalchemy.ForeignKey("owner.id"))
+    attribution = sqlalchemy.Column(sqlalchemy.VARCHAR, nullable=True)
 
     created_at = sqlalchemy.Column(
         sqlalchemy.TIMESTAMP(timezone=True), nullable=False)
     updated_at = sqlalchemy.Column(
         sqlalchemy.TIMESTAMP(timezone=True), nullable=False)
-    scraped_at = sqlalchemy.Column(
-        sqlalchemy.TIMESTAMP(timezone=True), nullable=True)
 
     categories = sqlalchemy.Column(
         EnumArray(postgresql.ENUM(*enum_values(Category), name="Category")),
-        nullable=True)
+        nullable=False)
     domain_category = sqlalchemy.Column(
         postgresql.ENUM(*enum_values(DomainCategory), name="DomainCategory"),
-        nullable=True)
+        nullable=False)
     asset_type = sqlalchemy.Column(
         postgresql.ENUM(*enum_values(AssetType), name="AssetType"),
-        nullable=True)
-    dataset_agency = sqlalchemy.Column(sqlalchemy.VARCHAR, nullable=False)
+        nullable=False)
+
+    dataset_agency = sqlalchemy.Column(sqlalchemy.VARCHAR, nullable=True)
     is_auto_updated = sqlalchemy.Column(sqlalchemy.BOOLEAN, nullable=False)
-    update_frequency = sqlalchemy.Column(sqlalchemy.VARCHAR, nullable=False)
+    update_frequency = sqlalchemy.Column(sqlalchemy.VARCHAR, nullable=True)
 
     domain_tags = sqlalchemy.Column(
         sqlalchemy.ARRAY(sqlalchemy.VARCHAR), nullable=False)
@@ -174,9 +113,3 @@ class Dataset(Base, DbMixin):
         postgresql.ARRAY(sqlalchemy.TEXT), nullable=False)
     column_descriptions = sqlalchemy.Column(
         postgresql.ARRAY(sqlalchemy.TEXT), nullable=False)
-
-
-class Owner(Base, DbMixin):
-    __tablename__ = "owner"
-    id = sqlalchemy.Column(sqlalchemy.CHAR(9), primary_key=True)
-    name = sqlalchemy.Column(sqlalchemy.TEXT, nullable=False)

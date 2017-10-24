@@ -5,6 +5,7 @@ import typing
 import geoalchemy2
 import geopandas as gpd
 import pandas as pd
+import sqlalchemy as sa
 
 from nycodex import db
 from nycodex.logging import get_logger
@@ -15,14 +16,12 @@ BASE = "https://data.cityofnewyork.us/api"
 logger = get_logger(__name__)
 
 
-def scrape_geojson(dataset_id: str) -> None:
+def scrape_geojson(trans: sa.engine.base.Connection, dataset_id: str) -> None:
     log = logger.bind(dataset_id=dataset_id, method="scrape_geojson")
 
     params = {"method": "export", "format": "GeoJSON"}
     url = f"{BASE}/geospatial/{dataset_id}"
     with utils.download_file(url, params=params) as fname:
-        if os.path.getsize(fname) > 128 * 1024 * 1024:  # 128 MB
-            raise exceptions.SocrataDatasetTooLarge
         try:
             df = gpd.read_file(fname)
         except ValueError as e:
@@ -67,31 +66,24 @@ def scrape_geojson(dataset_id: str) -> None:
         index=False,
         dtype={"geometry": geoalchemy2.Geometry(geometry_type=ty, srid=4326)})
 
-    with db.engine.begin() as trans:
-        trans.execute(f"DROP TABLE IF EXISTS\"{dataset_id}\"")
-        trans.execute(f"""
-        ALTER TABLE \"{dataset_id}-new\"
-        RENAME TO "{dataset_id}"
-        """)
-        trans.execute(f"""
-        UPDATE dataset
-        SET scraped_at = NOW()
-        WHERE id = '{dataset_id}'
-        """)
+    trans.execute(f"DROP TABLE IF EXISTS\"{dataset_id}\"")
+    trans.execute(f"""
+    ALTER TABLE \"{dataset_id}-new\"
+    RENAME TO "{dataset_id}"
+    """)
+    trans.execute(f"""
+    UPDATE dataset
+    SET scraped_at = NOW()
+    WHERE id = '{dataset_id}'
+    """)
     log.info("Successfully inserted")
 
 
-def scrape_dataset(dataset_id, names, fields, types) -> None:
+def scrape_dataset(trans, dataset_id, names, fields, types) -> None:
     log = logger.bind(dataset_id=dataset_id)
-
-    for f in fields:
-        if len(f) > 63:
-            raise exceptions.SocrataColumnNameTooLong(f)
-
+    assert all(len(f) <= 63 for f in fields)
     url = f"{BASE}/views/{dataset_id}/rows.csv"
     with utils.download_file(url, params={"accessType": "DOWNLOAD"}) as fname:
-        if os.path.getsize(fname) > 128 * 1024 * 1024:  # 128 MB
-            raise exceptions.SocrataDatasetTooLarge
         try:
             df = pd.read_csv(fname, dtype={
                     name: str
@@ -115,19 +107,13 @@ def scrape_dataset(dataset_id, names, fields, types) -> None:
         os.chmod(path, 0o775)
 
         log.info("Inserting dataset")
-        with db.engine.begin() as conn:
-            conn.execute(f"DROP TABLE IF EXISTS \"{dataset_id}\"")
-            conn.execute(f"CREATE TABLE \"{dataset_id}\" ({columns})")
-            conn.execute(f"""
-            COPY "{dataset_id}"
-            FROM '{path}'
-            WITH CSV NULL AS ''
-            """)
-            conn.execute(f"""
-            UPDATE dataset
-            SET scraped_at = NOW()
-            WHERE id = '{dataset_id}'
-            """)
+        trans.execute(f"DROP TABLE IF EXISTS \"{dataset_id}\"")
+        trans.execute(f"CREATE TABLE \"{dataset_id}\" ({columns})")
+        trans.execute(f"""
+        COPY "{dataset_id}"
+        FROM '{path}'
+        WITH CSV NULL AS ''
+        """)
         log.info("Insert Sucessful!")
 
 

@@ -32,6 +32,7 @@ class AssetType(enum.Enum):
     FILTER = 'filter'
     HREF = 'href'
     MAP = 'map'
+    VISUALIZATION = 'visualization'
 
 
 @enum.unique

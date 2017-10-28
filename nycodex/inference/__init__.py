@@ -5,52 +5,67 @@ from .. import db
 
 
 def process_dataset(dataset: db.Dataset) -> None:
-    with db.engine.begin() as trans:
-        potential = {
+    table = sa.Table(dataset.id, db.Base.metadata, autoload_with=db.engine)
+    columns = [
+        column for column in table.c
+        if (isinstance(column.type, sa.String)
+            or isinstance(column.type, sa.Integer))
+    ]
+
+    if dataset.column_names:
+        # Use semantic information from Socrata
+        types = {
             name: ty
             for name, ty in zip(dataset.column_sql_names, dataset.column_types)
-            if ty in {db.DataType.NUMBER, db.DataType.TEXT}
         }
-        if not potential:
-            return
-
-        selects = [sa.func.count().label("count")] + [
-            sa.func.count(sa.distinct(sa.column(name))).label(f"{name}_count")
-            for name in potential
-        ] + [
-            sa.func.max(sa.func.length(sa.column(name))).label(f"{name}_max")
-            if ty == db.DataType.TEXT else
-            sa.func.max(sa.column(name)).label(f"{name}_max")
-            for name, ty in potential.items()
-        ] + [
-            sa.func.min(sa.func.length(sa.column(name))).label(f"{name}_min")
-            if ty == db.DataType.TEXT else
-            sa.func.min(sa.column(name)).label(f"{name}_min")
-            for name, ty in potential.items()
+        columns = [
+            column for column in columns
+            if types.get(column.name) in
+            {None, db.DataType.NUMBER, db.DataType.TEXT}
         ]
-        query = sa.select(selects).select_from(sa.table(dataset.id))
-        row = trans.execute(query).fetchone()
+    if not columns:
+        return
 
-        for name in potential:
+    def length(column):
+        if isinstance(column.type, sa.String):
+            return sa.func.length(column)
+        else:
+            return column
+
+    selects = [sa.func.count().label("count")] + [
+        sa.func.count(sa.distinct(column)).label(f"{column.name}_count")
+        for column in columns
+    ] + [
+        sa.func.max(length(column)).label(f"{column.name}_max")
+        for column in columns
+    ] + [
+        sa.func.min(length(column)).label(f"{column.name}_min")
+        for column in columns
+    ]
+
+    with db.engine.connect() as conn:
+        query = sa.select(selects).select_from(table)
+        row = conn.execute(query).fetchone()
+
+        trans = conn.begin()
+
+        for column in columns:
             data = {
-                "unique": row[f"{name}_count"] == row["count"],
-                "max_len": row[f"{name}_max"],
-                "min_len": row[f"{name}_min"],
+                "unique": row[f"{column.name}_count"] == row["count"],
+                "max_len": row[f"{column.name}_max"],
+                "min_len": row[f"{column.name}_min"],
             }
             if data['max_len'] is None:
                 # Column only has NULLs
                 assert data['min_len'] is None
                 data['max_len'] = 0
                 data['min_len'] = 0
-            elif (isinstance(data['max_len'], float)
-                  or isinstance(data['min_len'], float)):
-                # Floating point numbers won't be foreign keys or primary keys
-                continue
 
             stmt = postgresql.insert(db.columns) \
-                .values(dataset=dataset.id, column=name, **data) \
+                .values(dataset=dataset.id, column=column.name, **data) \
                 .on_conflict_do_update(
                     index_elements=[db.columns.c.dataset, db.columns.c.column],
                     set_=data
                 )
-            trans.execute(stmt)
+            conn.execute(stmt)
+        trans.commit()

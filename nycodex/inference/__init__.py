@@ -1,3 +1,5 @@
+import warnings
+
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
@@ -5,7 +7,10 @@ from .. import db
 
 
 def process_dataset(dataset: db.Dataset) -> None:
-    table = sa.Table(dataset.id, db.Base.metadata, autoload_with=db.engine)
+    with warnings.catch_warnings():
+        # Ignore "did not recognize type money / geometry" warings
+        warnings.simplefilter("ignore", category=sa.exc.SAWarning)
+        table = sa.Table(dataset.id, db.Base.metadata, autoload_with=db.engine)
     columns = [
         column for column in table.c
         if (isinstance(column.type, sa.String)

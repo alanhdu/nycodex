@@ -12,6 +12,7 @@ from nycodex.logging import get_logger
 from . import exceptions, utils
 
 BASE = "https://data.cityofnewyork.us/api"
+RAW_SCHEMA = 'raw'
 
 logger = get_logger(__name__)
 
@@ -62,14 +63,15 @@ def scrape_geojson(trans: sa.engine.base.Connection, dataset_id: str) -> None:
     df.to_sql(
         f"{dataset_id}-new",
         db.engine,
+        schema=RAW_SCHEMA,
         if_exists='replace',
         index=False,
         dtype={"geometry": geoalchemy2.Geometry(geometry_type=ty, srid=4326)})
 
-    trans.execute(f"DROP TABLE IF EXISTS\"{dataset_id}\"")
+    trans.execute(f"DROP TABLE IF EXISTS\"{RAW_SCHEMA}.{dataset_id}\"")
     trans.execute(f"""
-    ALTER TABLE \"{dataset_id}-new\"
-    RENAME TO "{dataset_id}"
+    ALTER TABLE \"{RAW_SCHEMA}.{dataset_id}-new\"
+    RENAME TO "{RAW_SCHEMA}.{dataset_id}"
     """)
     trans.execute(f"""
     UPDATE dataset
@@ -107,10 +109,11 @@ def scrape_dataset(trans, dataset_id, names, fields, types) -> None:
         os.chmod(path, 0o775)
 
         log.info("Inserting dataset")
-        trans.execute(f"DROP TABLE IF EXISTS \"{dataset_id}\"")
-        trans.execute(f"CREATE TABLE \"{dataset_id}\" ({columns})")
+        trans.execute(f"DROP TABLE IF EXISTS \"{RAW_SCHEMA}.{dataset_id}\"")
+        trans.execute(
+            f"CREATE TABLE \"{RAW_SCHEMA}.{dataset_id}\" ({columns})")
         trans.execute(f"""
-        COPY "{dataset_id}"
+        COPY "{RAW_SCHEMA}.{dataset_id}"
         FROM '{path}'
         WITH CSV NULL AS ''
         """)

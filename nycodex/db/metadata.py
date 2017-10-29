@@ -70,6 +70,7 @@ class DataType:
 
 class Dataset(Base, DbMixin):
     __tablename__ = "dataset"
+    __table_args__ = {'schema': 'metadata'}
 
     id = sqlalchemy.Column(sqlalchemy.CHAR(9), primary_key=True)
     owner_id = sqlalchemy.Column(sqlalchemy.CHAR(9), nullable=False)

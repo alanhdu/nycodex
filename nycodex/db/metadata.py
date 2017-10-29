@@ -1,9 +1,10 @@
 import enum
+import warnings
 
 import sqlalchemy
 from sqlalchemy.dialects import postgresql
 
-from .base import Base
+from .base import Base, engine
 from .utils import DbMixin, enum_values, EnumArray
 
 
@@ -115,3 +116,10 @@ class Dataset(Base, DbMixin):
         postgresql.ARRAY(sqlalchemy.TEXT), nullable=False)
     column_descriptions = sqlalchemy.Column(
         postgresql.ARRAY(sqlalchemy.TEXT), nullable=False)
+
+    def to_table(self) -> sqlalchemy.Table:
+        with warnings.catch_warnings():
+            # Ignore "did not recognize type money / geometry" warings
+            warnings.simplefilter("ignore", category=sqlalchemy.exc.SAWarning)
+            return sqlalchemy.Table(
+                self.id, Base.metadata, autoload_with=engine)

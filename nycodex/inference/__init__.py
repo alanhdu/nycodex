@@ -1,5 +1,3 @@
-import warnings
-
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
@@ -7,10 +5,7 @@ from .. import db
 
 
 def process_dataset(dataset: db.Dataset) -> None:
-    with warnings.catch_warnings():
-        # Ignore "did not recognize type money / geometry" warings
-        warnings.simplefilter("ignore", category=sa.exc.SAWarning)
-        table = sa.Table(dataset.id, db.Base.metadata, autoload_with=db.engine)
+    table = dataset.to_table()
     columns = [
         column for column in table.c
         if (isinstance(column.type, sa.String)
@@ -76,3 +71,49 @@ def process_dataset(dataset: db.Dataset) -> None:
                 )
             conn.execute(stmt)
         trans.commit()
+
+
+def inclusion_dependency(dataset: db.Dataset) -> None:
+    table = dataset.to_table()
+    with db.engine.connect() as conn:
+        A = sa.select([db.columns]) \
+            .where(db.columns.c.dataset == dataset.id) \
+            .alias('A')
+        B = sa.select([db.columns]) \
+            .where(db.columns.c.unique &
+                   (db.columns.c.dataset != dataset.id)) \
+            .alias('B')
+
+        query = sa.select([A.c.column, B.c.dataset, B.c.column]) \
+            .where(sa.and_(
+                A.c.is_text == B.c.is_text,
+                A.c.distinct_count <= B.c.distinct_count,
+                A.c.min_len >= B.c.min_len,
+                A.c.min_text >= B.c.min_text,
+                A.c.max_len <= B.c.max_len,
+                A.c.max_text <= B.c.max_text,
+            ))
+
+        inclusions = []
+        for column, idataset, icolumn in conn.execute(query):
+            subquery = sa.select([None]) \
+                .select_from(sa.table(idataset)) \
+                .where(sa.column(icolumn) == table.c[column])
+            iquery = sa.select([None]) \
+                .select_from(table) \
+                .where(~sa.exists(subquery)) \
+                .limit(1)
+            if conn.execute(iquery).fetchone() is None:
+                inclusions.append({
+                    "target_dataset": dataset.id,
+                    "target_column": column,
+                    "source_dataset": idataset,
+                    "source_column": icolumn
+                })
+
+        if inclusions:
+            trans = conn.begin()
+            conn.execute(db.inclusions.delete().where(
+                db.inclusions.c.target_dataset == dataset.id))
+            conn.execute(db.inclusions.insert().values(inclusions))
+            trans.commit()

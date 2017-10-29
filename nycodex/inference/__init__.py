@@ -6,23 +6,17 @@ from .. import db
 
 def process_dataset(dataset: db.Dataset) -> None:
     table = dataset.to_table()
+    # Use semantic information from Socrata
+    allowed_type = {
+        name: ty in {db.DataType.NUMBER, db.DataType.TEXT}
+        for name, ty in zip(dataset.column_sql_names, dataset.column_types)
+    }
     columns = [
         column for column in table.c
         if (isinstance(column.type, sa.String)
             or isinstance(column.type, sa.Integer))
+        if allowed_type.get(column.name, True)
     ]
-
-    if dataset.column_names:
-        # Use semantic information from Socrata
-        types = {
-            name: ty
-            for name, ty in zip(dataset.column_sql_names, dataset.column_types)
-        }
-        columns = [
-            column for column in columns
-            if types.get(column.name) in
-            {None, db.DataType.NUMBER, db.DataType.TEXT}
-        ]
     if not columns:
         return
 
@@ -61,6 +55,10 @@ def process_dataset(dataset: db.Dataset) -> None:
             }
             if data["distinct_count"] < 4:
                 # If not enough distinct counts, probably not a key
+                continue
+            elif column.name.startswith("boro") and data["distinct_count"] < 7:
+                # Don't bother with boroughs
+                # < 7 because (5 boroughs + "unknown")
                 continue
 
             stmt = postgresql.insert(db.columns) \

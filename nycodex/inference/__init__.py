@@ -37,34 +37,36 @@ def process_dataset(dataset: db.Dataset) -> None:
         else:
             return column
 
-    selects = [sa.func.count().label("count")] + [
-        sa.func.count(sa.distinct(column)).label(f"{column.name}_count")
-        for column in columns
-    ] + [
-        sa.func.max(length(column)).label(f"{column.name}_max")
-        for column in columns
-    ] + [
-        sa.func.min(length(column)).label(f"{column.name}_min")
-        for column in columns
-    ]
+    selects = [(
+        sa.func.count(sa.distinct(column)).label(f"{column.name}_count"),
+        sa.func.max(length(column)).label(f"{column.name}_max"),
+        sa.func.min(length(column)).label(f"{column.name}_min"),
+    ) for column in columns] + [(
+        sa.func.max(column).label(f"{column.name}_max_text"),
+        sa.func.min(column).label(f"{column.name}_min_text"),
+    ) for column in columns if isinstance(column.type, sa.String)]
+    selects = [item for sublist in selects for item in sublist]
+    selects += [sa.func.count().label("count")]
 
     with db.engine.connect() as conn:
         query = sa.select(selects).select_from(table)
-        row = conn.execute(query).fetchone()
+        row = dict(conn.execute(query).fetchone())
 
         trans = conn.begin()
 
         for column in columns:
             data = {
+                "distinct_count": row[f"{column.name}_count"],
                 "unique": row[f"{column.name}_count"] == row["count"],
                 "max_len": row[f"{column.name}_max"],
                 "min_len": row[f"{column.name}_min"],
+                "is_text": isinstance(column.type, sa.String),
+                "max_text": row.get(f"{column.name}_max_text", ""),
+                "min_text": row.get(f"{column.name}_min_text", ""),
             }
-            if data['max_len'] is None:
-                # Column only has NULLs
-                assert data['min_len'] is None
-                data['max_len'] = 0
-                data['min_len'] = 0
+            if data["distinct_count"] < 4:
+                # If not enough distinct counts, probably not a key
+                continue
 
             stmt = postgresql.insert(db.columns) \
                 .values(dataset=dataset.id, column=column.name, **data) \

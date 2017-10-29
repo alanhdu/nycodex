@@ -9,6 +9,12 @@ columns = sa.Table(
               primary_key=True),
     sa.Column("column", sa.TEXT, primary_key=True),
     sa.Column("unique", sa.BOOLEAN, nullable=False),
+    sa.Column("distinct_count", sa.INTEGER, nullable=False),
     sa.Column("max_len", sa.BIGINT, nullable=False),
     sa.Column("min_len", sa.BIGINT, nullable=False),
+
+    sa.Column("is_text", sa.BOOLEAN, nullable=False),
+
+    sa.Column("max_text", sa.TEXT, nullable=False),
+    sa.Column("min_text", sa.TEXT, nullable=False),
     schema="inference")

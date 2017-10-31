@@ -8,6 +8,7 @@ import requests
 from nycodex import db
 from nycodex.logging import get_logger
 
+
 BASE = "https://api.us.socrata.com/api/catalog/v1"
 DOMAIN = "data.cityofnewyork.us"
 

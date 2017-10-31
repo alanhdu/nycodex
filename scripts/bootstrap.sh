@@ -13,3 +13,5 @@ CREATE SCHEMA IF NOT EXISTS api;
 CREATE SCHEMA IF NOT EXISTS metadata;
 CREATE SCHEMA IF NOT EXISTS inference;
 EOL
+
+sudo -u postgres psql -d nycodex -f postgrest.sql

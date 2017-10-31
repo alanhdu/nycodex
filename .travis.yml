@@ -24,6 +24,7 @@ before_install:
 - psql -d nycodex -c 'CREATE SCHEMA IF NOT EXISTS api;' -U postgres
 - psql -d nycodex -c 'CREATE SCHEMA IF NOT EXISTS metadata;' -U postgres
 - psql -d nycodex -c 'CREATE SCHEMA IF NOT EXISTS inference;' -U postgres
+- psql -d nycodex -f scripts/postgrest.sql -U postgres
 - echo "DATABASE_URI=postgresql://postgresql@localhost/nycodex" > .env
 install:
 - pip install pipenv

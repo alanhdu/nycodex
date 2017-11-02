@@ -17,6 +17,7 @@ class FakeTable(db.Base, db.DbMixin):
 def engine():
     with testing.postgresql.Postgresql() as postgresql:
         engine = sqlalchemy.create_engine(postgresql.url())
+        engine.execute("CREATE SCHEMA IF NOT EXISTS inference")
         db.Base.metadata.create_all(engine)
         yield engine
 

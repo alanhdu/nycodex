@@ -9,4 +9,4 @@ sudo -u postgres psql -d nycodex <<EOL
 ALTER ROLE adi WITH PASSWORD 'password';
 EOL
 
-sudo -u postgres psql -d nycodex -f setup.sql
+sudo -u postgres psql -d nycodex < setup.sql

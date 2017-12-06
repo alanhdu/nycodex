@@ -1,5 +1,5 @@
 import pytest
-import sqlalchemy
+import sqlalchemy as sa
 import testing.postgresql
 
 from nycodex import db
@@ -8,15 +8,15 @@ from nycodex import db
 class FakeTable(db.Base, db.DbMixin):
     __tablename__ = "_fake_table"
 
-    id = sqlalchemy.Column(sqlalchemy.CHAR(9), primary_key=True)
-    name = sqlalchemy.Column(sqlalchemy.TEXT, nullable=False)
-    description = sqlalchemy.Column(sqlalchemy.TEXT, nullable=True)
+    id = sa.Column(sa.CHAR(9), primary_key=True)
+    name = sa.Column(sa.TEXT, nullable=False)
+    description = sa.Column(sa.TEXT, nullable=True)
 
 
 @pytest.fixture
 def engine():
     with testing.postgresql.Postgresql() as postgresql:
-        engine = sqlalchemy.create_engine(postgresql.url())
+        engine = sa.create_engine(postgresql.url())
         engine.execute("CREATE SCHEMA IF NOT EXISTS inference")
         db.Base.metadata.create_all(engine)
         yield engine
@@ -30,7 +30,7 @@ def conn(engine):
 
 @pytest.fixture
 def session(engine):
-    Session = sqlalchemy.orm.sessionmaker(bind=engine)
+    Session = sa.orm.sessionmaker(bind=engine)
     session = Session()
     yield session
     session.close()

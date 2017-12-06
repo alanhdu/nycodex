@@ -1,7 +1,7 @@
 import enum
 import warnings
 
-import sqlalchemy
+import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 from .base import Base, engine
@@ -73,67 +73,56 @@ class Dataset(Base, DbMixin):
     __tablename__ = "dataset"
     __table_args__ = {'schema': 'metadata'}
 
-    id = sqlalchemy.Column(sqlalchemy.CHAR(9), primary_key=True)
-    owner_id = sqlalchemy.Column(sqlalchemy.CHAR(9), nullable=False)
+    id = sa.Column(sa.CHAR(9), primary_key=True)
+    owner_id = sa.Column(sa.CHAR(9), nullable=False)
 
-    attribution = sqlalchemy.Column(sqlalchemy.VARCHAR, nullable=True)
-    description = sqlalchemy.Column(sqlalchemy.TEXT, nullable=False)
-    is_official = sqlalchemy.Column(sqlalchemy.BOOLEAN, nullable=False)
-    name = sqlalchemy.Column(sqlalchemy.VARCHAR, nullable=False)
+    attribution = sa.Column(sa.VARCHAR, nullable=True)
+    description = sa.Column(sa.TEXT, nullable=False)
+    is_official = sa.Column(sa.BOOLEAN, nullable=False)
+    name = sa.Column(sa.VARCHAR, nullable=False)
 
-    page_views_last_month = sqlalchemy.Column(
-        sqlalchemy.INTEGER, nullable=False)
-    page_views_last_week = sqlalchemy.Column(
-        sqlalchemy.INTEGER, nullable=False)
-    page_views_total = sqlalchemy.Column(sqlalchemy.INTEGER, nullable=False)
+    page_views_last_month = sa.Column(sa.INTEGER, nullable=False)
+    page_views_last_week = sa.Column(sa.INTEGER, nullable=False)
+    page_views_total = sa.Column(sa.INTEGER, nullable=False)
 
-    created_at = sqlalchemy.Column(
-        sqlalchemy.TIMESTAMP(timezone=True), nullable=False)
-    updated_at = sqlalchemy.Column(
-        sqlalchemy.TIMESTAMP(timezone=True), nullable=False)
+    created_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=False)
+    updated_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=False)
 
-    categories = sqlalchemy.Column(
+    categories = sa.Column(
         EnumArray(postgresql.ENUM(*enum_values(Category), name="Category")),
         nullable=False)
-    domain_category = sqlalchemy.Column(
+    domain_category = sa.Column(
         postgresql.ENUM(*enum_values(DomainCategory), name="DomainCategory"),
         nullable=False)
-    asset_type = sqlalchemy.Column(
+    asset_type = sa.Column(
         postgresql.ENUM(*enum_values(AssetType), name="AssetType"),
         nullable=False)
 
-    dataset_agency = sqlalchemy.Column(sqlalchemy.VARCHAR, nullable=True)
-    is_auto_updated = sqlalchemy.Column(sqlalchemy.BOOLEAN, nullable=False)
-    update_frequency = sqlalchemy.Column(sqlalchemy.VARCHAR, nullable=True)
+    dataset_agency = sa.Column(sa.VARCHAR, nullable=True)
+    is_auto_updated = sa.Column(sa.BOOLEAN, nullable=False)
+    update_frequency = sa.Column(sa.VARCHAR, nullable=True)
 
-    parents = sqlalchemy.Column(
-        sqlalchemy.ARRAY(sqlalchemy.CHAR(9)), nullable=False)
-    domain_tags = sqlalchemy.Column(
-        sqlalchemy.ARRAY(sqlalchemy.VARCHAR), nullable=False)
+    parents = sa.Column(postgresql.ARRAY(sa.CHAR(9)), nullable=False)
+    domain_tags = sa.Column(postgresql.ARRAY(sa.VARCHAR), nullable=False)
 
     # TODO(alan): Use Postgresql composite type
-    column_names = sqlalchemy.Column(
-        postgresql.ARRAY(sqlalchemy.TEXT), nullable=False)
-    column_field_names = sqlalchemy.Column(
-        postgresql.ARRAY(sqlalchemy.TEXT), nullable=False)
-    column_sql_names = sqlalchemy.Column(
-        postgresql.ARRAY(sqlalchemy.VARCHAR(63)), nullable=False)
-    column_types = sqlalchemy.Column(
-        postgresql.ARRAY(sqlalchemy.TEXT), nullable=False)
-    column_descriptions = sqlalchemy.Column(
-        postgresql.ARRAY(sqlalchemy.TEXT), nullable=False)
+    column_names = sa.Column(postgresql.ARRAY(sa.TEXT), nullable=False)
+    column_field_names = sa.Column(postgresql.ARRAY(sa.TEXT), nullable=False)
+    column_sql_names = sa.Column(
+        postgresql.ARRAY(sa.VARCHAR(63)), nullable=False)
+    column_types = sa.Column(postgresql.ARRAY(sa.TEXT), nullable=False)
+    column_descriptions = sa.Column(postgresql.ARRAY(sa.TEXT), nullable=False)
 
     __table_args__ = (
-        sqlalchemy.Index(
+        sa.Index(
             'idx_dataset_domain_tags_gin', domain_tags,
             postgresql_using="gin"),
-        sqlalchemy.CheckConstraint("page_views_last_month >= page_views_last_week"),
-        sqlalchemy.CheckConstraint("page_views_total >= page_views_last_week"),
+        sa.CheckConstraint("page_views_last_month >= page_views_last_week"),
+        sa.CheckConstraint("page_views_total >= page_views_last_week"),
     )
 
-    def to_table(self) -> sqlalchemy.Table:
+    def to_table(self) -> sa.Table:
         with warnings.catch_warnings():
             # Ignore "did not recognize type money / geometry" warings
-            warnings.simplefilter("ignore", category=sqlalchemy.exc.SAWarning)
-            return sqlalchemy.Table(
-                self.id, Base.metadata, autoload_with=engine)
+            warnings.simplefilter("ignore", category=sa.exc.SAWarning)
+            return sa.Table(self.id, Base.metadata, autoload_with=engine)

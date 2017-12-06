@@ -44,63 +44,75 @@ queue = sa.Table(
     sa.Column("updated_at", sa.TIMESTAMP(timezone=True), nullable=False),
     sa.Column("scraped_at", sa.TIMESTAMP(timezone=True), nullable=True),
     sa.Column("processed_at", sa.TIMESTAMP(timezone=True), nullable=True),
+    sa.Column("retries", sa.SMALLINT, nullable=False, default=0),
 )   # yapf: disable
 
 
 def update_from_metadata(conn: sa.engine.base.Connection) -> None:
     dataset = Dataset.__table__
-    conn.execute(sa.text(f"""
+    query = sa.text(f"""
     INSERT INTO {queue.name}
-    ({queue.c.dataset_id.name}, {queue.c.updated_at.name})
-    SELECT {dataset.c.id.name}, {dataset.c.updated_at.name} FROM {dataset.name}
+        ({queue.c.dataset_id.name}, {queue.c.updated_at.name},
+         {queue.c.retries.name})
+    SELECT {dataset.c.id.name}, {dataset.c.updated_at.name}, 0
+        FROM {dataset.name}
         WHERE {dataset.c.asset_type} IN ('{AssetType.DATASET.value}',
                                          '{AssetType.MAP.value}')
           AND array_length({dataset.c.parents}, 1) IS NULL
     ON CONFLICT ({queue.c.dataset_id.name}) DO UPDATE
         SET {queue.c.updated_at.name} = excluded.{dataset.c.updated_at.name}
-    """))
+    """)
+    conn.execute(query)
+
+
+def _next_row(query, success):
+    query = (query
+             .where(queue.c.retries < 3)
+             .order_by(sa.asc(queue.c.retries))
+             .limit(1)
+             .with_for_update(skip_locked=True))  # yapf: disable
+
+    fail = queue.update().values(retries=queue.c.retries + 1)
+    with engine.connect() as conn:
+        trans = conn.begin()
+
+        row = conn.execute(query).fetchone()
+        if row is None:
+            yield None, None
+            return
+
+        try:
+            yield conn, row.dataset_id
+            conn.execute(success.where(queue.c.dataset_id == row.dataset_id))
+            trans.commit()
+        except Exception:
+            conn.execute(fail.where(queue.c.dataset_id == row.dataset_id))
+            trans.commit()
+            raise
 
 
 @contextlib.contextmanager
 def next_row_to_scrape():
-    with engine.begin() as trans:
-        query = (sa
-                 .select([queue.c.dataset_id])
-                 .where(sa.or_(
-                      queue.c.updated_at > queue.c.scraped_at,
-                      queue.c.scraped_at.is_(None)))
-                 .limit(1)
-                 .with_for_update(skip_locked=True))    # yapf: disable
-        row = trans.execute(query).fetchone()
-        if row is not None:
-            yield trans, row.dataset_id
-            trans.execute(
-                 queue.update()
-                 .values(scraped_at=sa.func.now())
-                 .where(queue.c.dataset_id == row.dataset_id))  # yapf: disable
-        else:
-            yield trans, None
+    query = (sa
+             .select([queue.c.dataset_id])
+             .where(sa.and_(
+                 sa.or_(
+                     queue.c.updated_at > queue.c.scraped_at,
+                     queue.c.scraped_at.is_(None)),
+             )))  # yapf: disable
+    success = queue.update().values(scraped_at=sa.func.now(), retries=0)
+    yield from _next_row(query, success)
 
 
 @contextlib.contextmanager
 def next_row_to_process():
-    with engine.begin() as trans:
-        query = (sa
-                 .select([queue.c.dataset_id])
-                 .where(sa.and_(
-                      queue.c.scraped_at.isnot(None),
-                      sa.or_(
-                          queue.c.scraped_at > queue.c.processed_at,
-                          queue.c.processed_at.is_(None)),
-                  ))
-                 .limit(1)
-                 .with_for_update(skip_locked=True))    # yapf: disable
-        row = trans.execute(query).fetchone()
-        if row is not None:
-            yield trans, row.dataset_id
-            trans.execute(
-                 queue.update()
-                 .values(processed_at=sa.func.now())
-                 .where(queue.c.dataset_id == row.dataset_id))  # yapf: disable
-        else:
-            yield trans, None
+    query = (sa
+             .select([queue.c.dataset_id])
+             .where(sa.and_(
+                  queue.c.scraped_at.isnot(None),
+                  sa.or_(
+                      queue.c.scraped_at > queue.c.processed_at,
+                      queue.c.processed_at.is_(None)),
+              )))   # yapf: disable
+    success = queue.update().values(processed_at=sa.func.now(), retries=0)
+    yield from _next_row(query, success)

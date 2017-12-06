@@ -76,10 +76,16 @@ class Dataset(Base, DbMixin):
     id = sqlalchemy.Column(sqlalchemy.CHAR(9), primary_key=True)
     owner_id = sqlalchemy.Column(sqlalchemy.CHAR(9), nullable=False)
 
-    name = sqlalchemy.Column(sqlalchemy.VARCHAR, nullable=False)
+    attribution = sqlalchemy.Column(sqlalchemy.VARCHAR, nullable=True)
     description = sqlalchemy.Column(sqlalchemy.TEXT, nullable=False)
     is_official = sqlalchemy.Column(sqlalchemy.BOOLEAN, nullable=False)
-    attribution = sqlalchemy.Column(sqlalchemy.VARCHAR, nullable=True)
+    name = sqlalchemy.Column(sqlalchemy.VARCHAR, nullable=False)
+
+    page_views_last_month = sqlalchemy.Column(
+        sqlalchemy.INTEGER, nullable=False)
+    page_views_last_week = sqlalchemy.Column(
+        sqlalchemy.INTEGER, nullable=False)
+    page_views_total = sqlalchemy.Column(sqlalchemy.INTEGER, nullable=False)
 
     created_at = sqlalchemy.Column(
         sqlalchemy.TIMESTAMP(timezone=True), nullable=False)
@@ -100,10 +106,10 @@ class Dataset(Base, DbMixin):
     is_auto_updated = sqlalchemy.Column(sqlalchemy.BOOLEAN, nullable=False)
     update_frequency = sqlalchemy.Column(sqlalchemy.VARCHAR, nullable=True)
 
+    parents = sqlalchemy.Column(
+        sqlalchemy.ARRAY(sqlalchemy.CHAR(9)), nullable=False)
     domain_tags = sqlalchemy.Column(
         sqlalchemy.ARRAY(sqlalchemy.VARCHAR), nullable=False)
-    __table_args__ = (sqlalchemy.Index(
-        'idx_dataset_domain_tags_gin', domain_tags, postgresql_using="gin"), )
 
     # TODO(alan): Use Postgresql composite type
     column_names = sqlalchemy.Column(
@@ -116,6 +122,14 @@ class Dataset(Base, DbMixin):
         postgresql.ARRAY(sqlalchemy.TEXT), nullable=False)
     column_descriptions = sqlalchemy.Column(
         postgresql.ARRAY(sqlalchemy.TEXT), nullable=False)
+
+    __table_args__ = (
+        sqlalchemy.Index(
+            'idx_dataset_domain_tags_gin', domain_tags,
+            postgresql_using="gin"),
+        sqlalchemy.CheckConstraint("page_views_last_month >= page_views_last_week"),
+        sqlalchemy.CheckConstraint("page_views_total >= page_views_last_week"),
+    )
 
     def to_table(self) -> sqlalchemy.Table:
         with warnings.catch_warnings():

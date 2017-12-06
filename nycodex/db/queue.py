@@ -49,13 +49,13 @@ queue = sa.Table(
 
 def update_from_metadata(conn: sa.engine.base.Connection) -> None:
     dataset = Dataset.__table__
-    conn.execute(
-        sa.text(f"""
+    conn.execute(sa.text(f"""
     INSERT INTO {queue.name}
     ({queue.c.dataset_id.name}, {queue.c.updated_at.name})
     SELECT {dataset.c.id.name}, {dataset.c.updated_at.name} FROM {dataset.name}
-        WHERE {dataset.c.asset_type} IN
-            ('{AssetType.DATASET.value}', '{AssetType.MAP.value}')
+        WHERE {dataset.c.asset_type} IN ('{AssetType.DATASET.value}',
+                                         '{AssetType.MAP.value}')
+          AND array_length({dataset.c.parents}, 1) IS NULL
     ON CONFLICT ({queue.c.dataset_id.name}) DO UPDATE
         SET {queue.c.updated_at.name} = excluded.{dataset.c.updated_at.name}
     """))

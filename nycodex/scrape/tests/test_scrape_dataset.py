@@ -1,72 +1,46 @@
-from collections import OrderedDict
-import math
+import contextlib
+import datetime as dt
+import json
+import os
 
 import pandas as pd
 import pytest
 
 from nycodex import db
-from nycodex.scrape.dataset import dataset_columns
-from nycodex.scrape.exceptions import SocrataTypeError
+from nycodex.scrape import utils
+from nycodex.scrape.dataset import scrape_dataset
+
+fixtures = os.path.join(os.path.split(__file__)[0], "fixtures")
 
 
-def test_dataset_columns_dtype_inference():
-    df = pd.DataFrame(OrderedDict([
-        ("SMALLINT", [1, 2, 3, 4]),
-        ("INTEGER", [1, 2, 3, 2147483647 - 1]),
-        ("BIGINT", [1, 2, 3, 2147483647 + 1]),
-        ("DOUBLE PRECISION", [1.0, 2.0, 3.0, 4.0]),
-        ("BOOLEAN", [True, False, True, False]),
-        ("MONEY", ["$1", "$2.00", "$3.00", "$0"]),
-        ("TEXT", ["a", "b", "c", "d"]),
-        ("TIMESTAMP WITHOUT TIME ZONE", ["a", "b", "c", "d"]),
-        ("TIMESTAMP WITH TIME ZONE", ["a", "b", "c", "d"]),
-    ]))  # yapf: disable
-    types = [
-        db.DataType.NUMBER,
-        db.DataType.NUMBER,
-        db.DataType.NUMBER,
-        db.DataType.NUMBER,
-        db.DataType.CHECKBOX,
-        db.DataType.MONEY,
-        db.DataType.TEXT,
-        db.DataType.CALENDAR_DATE,
-        db.DataType.DATE,
-    ]
+@pytest.mark.parametrize("dataset_id", os.listdir(fixtures))
+def test_scrape_dataset(conn, dataset_id, mocker):
+    with open(os.path.join(fixtures, dataset_id, "metadata.json")) as fin:
+        metadata = json.load(fin)
+    fields, names, types = (metadata['fields'], metadata['names'],
+                            metadata['types'])
+    fname = os.path.join(fixtures, dataset_id, "data.csv")
 
-    columns, new = dataset_columns(df, types)
-    assert (columns == df.columns).all()
-    pd.testing.assert_frame_equal(new, df)
+    @contextlib.contextmanager
+    def fake(fname):
+        yield fname
 
+    with mocker.patch.object(utils, "download_file", return_value=fake(fname)):
+        scrape_dataset(conn, dataset_id, names, fields, types)
 
-def test_dataset_columns_percent():
-    df = pd.DataFrame({"NUMERIC(6, 3)": ["1%", "100%", "23.02%", None]})
-    expected = pd.DataFrame({"NUMERIC(6, 3)": [1, 100, 23.02, math.nan]})
-    types = [db.DataType.PERCENT]
+    df = pd.read_sql(f'SELECT * FROM "raw.{dataset_id}"', conn)
+    assert (df.columns == fields).all()
 
-    columns, new = dataset_columns(df, types)
-    assert (columns == df.columns).all()
-    pd.testing.assert_frame_equal(new, expected)
-
-
-def test_dataset_columns_number_error():
-    df = pd.DataFrame({"a": ["1", "2", "3", "4"]})
-    types = [db.DataType.NUMBER]
-
-    with pytest.raises(SocrataTypeError):
-        dataset_columns(df, types)
-
-
-def test_dataset_columns_percent_error1():
-    df = pd.DataFrame({"a": ["1", "2", "3", "4"]})
-    types = [db.DataType.PERCENT]
-
-    with pytest.raises(SocrataTypeError):
-        dataset_columns(df, types)
-
-
-def test_dataset_columns_percent_error2():
-    df = pd.DataFrame({"a": ["3%", "a%"]})
-    types = [db.DataType.PERCENT]
-
-    with pytest.raises(SocrataTypeError):
-        dataset_columns(df, types)
+    for field, ty in zip(fields, types):
+        if ty == db.DataType.CALENDAR_DATE:
+            for d in df[field]:
+                if d is not None:
+                    assert isinstance(d, dt.date)
+        elif ty == db.DataType.CHECKBOX:
+            assert pd.api.types.is_bool_dtype(df[field])
+        elif ty == db.DataType.DATE:
+            assert pd.api.types.is_datetimetz(df[field])
+        elif ty == db.DataType.MONEY:
+            assert (df[field].str[0] == '$').all()
+        elif ty in {db.DataType.NUMBER, db.DataType.PERCENT}:
+            assert pd.api.types.is_numeric_dtype(df[field])

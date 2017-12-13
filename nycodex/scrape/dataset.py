@@ -13,11 +13,31 @@ from . import exceptions, utils
 
 BASE = "https://data.cityofnewyork.us/api"
 RAW_SCHEMA = 'raw'
+NULL_VALUES = frozenset({"null", "", "n/a", "na", "nan", "none"})
 
 logger = get_logger(__name__)
 
 
-def scrape_geojson(trans: sa.engine.base.Connection, dataset_id: str) -> None:
+def scrape(conn, dataset_id: str) -> None:
+    session = db.Session(bind=conn)
+    dataset = session.query(
+        db.Dataset).filter(db.Dataset.id == dataset_id).first()
+
+    log = logger.bind(dataset_id=dataset.id, dataset_type=dataset.asset_type)
+    log.info(f"Scraping dataset {dataset_id}")
+
+    if dataset.column_names:
+        scrape_dataset(conn, dataset.id, dataset.column_names,
+                       dataset.column_sql_names, dataset.column_types)
+        log.info("Successfully inserted")
+    elif dataset.asset_type == db.AssetType.MAP.value:
+        scrape_geojson(conn, dataset.id)
+        log.info("Successfully inserted")
+    else:
+        log.warning("Illegal dataset_type")
+
+
+def scrape_geojson(conn: sa.engine.base.Connection, dataset_id: str) -> None:
     log = logger.bind(dataset_id=dataset_id, method="scrape_geojson")
 
     params = {"method": "export", "format": "GeoJSON"}
@@ -66,40 +86,42 @@ def scrape_geojson(trans: sa.engine.base.Connection, dataset_id: str) -> None:
         schema=RAW_SCHEMA,
         if_exists='replace',
         index=False,
-        dtype={"geometry": geoalchemy2.Geometry(geometry_type=ty, srid=4326)})
+        dtype={
+            "geometry": geoalchemy2.Geometry(geometry_type=ty, srid=4326)
+        })
 
-    trans.execute(f"DROP TABLE IF EXISTS\"{RAW_SCHEMA}.{dataset_id}\"")
-    trans.execute(f"""
-    ALTER TABLE \"{RAW_SCHEMA}.{dataset_id}-new\"
-    RENAME TO "{RAW_SCHEMA}.{dataset_id}"
-    """)
-    trans.execute(f"""
-    UPDATE dataset
-    SET scraped_at = NOW()
-    WHERE id = '{dataset_id}'
-    """)
-    log.info("Successfully inserted")
+    trans = conn.begin()
+    try:
+        conn.execute(f"DROP TABLE IF EXISTS\"{RAW_SCHEMA}.{dataset_id}\"")
+        conn.execute(f"""
+        ALTER TABLE \"{RAW_SCHEMA}.{dataset_id}-new\"
+        RENAME TO "{RAW_SCHEMA}.{dataset_id}"
+        """)
+        conn.execute(f"""
+        UPDATE dataset
+        SET scraped_at = NOW()
+        WHERE id = '{dataset_id}'
+        """)
+    except Exception:
+        trans.rollback()
+        raise
+    trans.commit()
 
 
-def scrape_dataset(trans, dataset_id, names, fields, types) -> None:
-    log = logger.bind(dataset_id=dataset_id)
+def scrape_dataset(conn, dataset_id, names, fields, types) -> None:
     assert all(len(f) <= 63 for f in fields)
     url = f"{BASE}/views/{dataset_id}/rows.csv"
     with utils.download_file(url, params={"accessType": "DOWNLOAD"}) as fname:
         try:
-            df = pd.read_csv(fname, dtype={
-                    name: str
-                    for name, ty in zip(names, types)
-                    if ty not in {db.DataType.NUMBER, db.DataType.CHECKBOX}
-                })  # yapf: disable
+            df = pd.read_csv(fname, dtype={name: str for name in names})
         except pd.errors.ParserError as e:
             raise exceptions.SocrataParseError from e
     df = df[names]  # Reorder columns
     df.columns = fields  # replace with normalized names
 
     columns, df = dataset_columns(df, types)
-    columns = ", ".join(f"\"{name}\" {ty}"
-                        for name, ty in zip(df.columns, columns))
+    columns = ", ".join(
+        f"\"{name}\" {ty}" for name, ty in zip(df.columns, columns))
     with tempfile.TemporaryDirectory() as tmpdir:
         path = os.path.abspath(os.path.join(tmpdir, "data.csv"))
         df.to_csv(path, header=False, index=False)
@@ -108,58 +130,69 @@ def scrape_dataset(trans, dataset_id, names, fields, types) -> None:
         os.chmod(tmpdir, 0o775)
         os.chmod(path, 0o775)
 
-        log.info("Inserting dataset")
-        trans.execute(f"DROP TABLE IF EXISTS \"{RAW_SCHEMA}.{dataset_id}\"")
-        trans.execute(
-            f"CREATE TABLE \"{RAW_SCHEMA}.{dataset_id}\" ({columns})")
-        trans.execute(f"""
+        trans = conn.begin()
+        conn.execute(f'DROP TABLE IF EXISTS "{RAW_SCHEMA}.{dataset_id}"')
+        conn.execute(f'CREATE TABLE "{RAW_SCHEMA}.{dataset_id}" ({columns})')
+        conn.execute(f"""
         COPY "{RAW_SCHEMA}.{dataset_id}"
         FROM '{path}'
         WITH CSV NULL AS ''
         """)
-        log.info("Insert Sucessful!")
+        trans.commit()
 
 
 def dataset_columns(df: pd.DataFrame, types: typing.Iterable[str]
                     ) -> typing.Tuple[typing.List[str], pd.DataFrame]:
     columns = []
     for field, ty in zip(df.columns, types):
-        if ty == db.DataType.CALENDAR_DATE:
-            ty = "TIMESTAMP WITHOUT TIME ZONE"
-        elif ty == db.DataType.CHECKBOX:
-            ty = "BOOLEAN"
-        elif ty == db.DataType.DATE:
-            ty = "TIMESTAMP WITH TIME ZONE"
-        elif ty in {
-                db.DataType.EMAIL, db.DataType.HTML, db.DataType.LOCATION,
-                db.DataType.PHONE, db.DataType.TEXT, db.DataType.URL
-        }:
-            ty = "TEXT"
-        elif ty == db.DataType.MONEY:
-            ty = "MONEY"
-        elif ty == db.DataType.NUMBER:
-            if not pd.api.types.is_numeric_dtype(df[field]):
-                raise exceptions.SocrataTypeError(field, ty, df[field].dtype)
-            elif pd.api.types.is_integer_dtype(df[field]):
-                # TODO(alan): Handle nullable integers
-                min, max = df[field].min(), df[field].max()
-                if -32768 < min and max < 32767:
-                    ty = "SMALLINT"
-                elif -2147483648 < min and max < 2147483647:
-                    ty = "INTEGER"
-                else:
-                    ty = "BIGINT"
-            else:
-                ty = "DOUBLE PRECISION"
-        elif ty == db.DataType.PERCENT:
-            ty = "NUMERIC(6, 3)"
-            if (df[field].dropna().str[-1] != "%").any():
-                raise exceptions.SocrataTypeError(field, ty, df[field].dtype)
-            try:
-                df[field] = df[field].str[:-1].astype(float)
-            except (ValueError, TypeError) as e:
-                raise exceptions.SocrataTypeError(field, ty, df[field].dtype)
-        else:
-            raise RuntimeError(f"Unknown datatype {ty}")
-        columns.append(ty)
+        column = df[field]
+        mask = column.isnull() | column.str.lower().isin(NULL_VALUES)
+        column_nonull = column[~mask]
+
+        sql_type, column_nonull = _dataset_column(column_nonull, ty, field)
+
+        df[field][mask] = ""
+        df[field][~mask] = column_nonull
+        columns.append(sql_type)
     return columns, df
+
+
+def _dataset_column(column: pd.Series, ty: str, field: str) -> str:
+    if ty == db.DataType.CALENDAR_DATE:
+        return "DATE", column
+    elif ty == db.DataType.CHECKBOX:
+        return "BOOLEAN", column
+    elif ty == db.DataType.DATE:
+        return "TIMESTAMP WITH TIME ZONE", column
+    elif ty in {
+            db.DataType.EMAIL, db.DataType.HTML, db.DataType.LOCATION,
+            db.DataType.PHONE, db.DataType.TEXT, db.DataType.URL
+    }:
+        return "TEXT", column
+    elif ty == db.DataType.MONEY:
+        return "MONEY", column
+    elif ty == db.DataType.NUMBER:
+        try:
+            ncolumn = pd.to_numeric(column)
+        except (ValueError, TypeError) as e:
+            raise exceptions.SocrataTypeError(field, ty, column.dtype)
+
+        if pd.api.types.is_integer_dtype(ncolumn):
+            min, max = ncolumn.min(), ncolumn.max()
+            if -32768 < min and max < 32767:
+                return "SMALLINT", column
+            elif -2147483648 < min and max < 2147483647:
+                return "INTEGER", column
+            else:
+                return "BIGINT", column
+        return "DOUBLE PRECISION", column
+    elif ty == db.DataType.PERCENT:
+        if (column.str[-1] != "%").any():
+            raise exceptions.SocrataTypeError(field, ty, column.dtype)
+        try:
+            column = pd.to_numeric(column.str[:-1])
+        except (ValueError, TypeError) as e:
+            raise exceptions.SocrataTypeError(field, ty, column.dtype)
+        return "NUMERIC(6, 3)", column
+    else:
+        raise RuntimeError(f"Unknown datatype {ty}")

@@ -1,0 +1,5 @@
+{
+    "fields": ["organization", "total_final_award", "application"],
+    "names": ["Organization", "Total Final Award", "Application #"],
+    "types": ["text", "money", "text"]
+}

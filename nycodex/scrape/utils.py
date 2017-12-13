@@ -10,7 +10,7 @@ from . import exceptions
 @contextmanager
 def download_file(url: str,
                   params: Optional[Dict[str, Any]] = None,
-                  maxsize: Optional[int] = 128 * 1024 * 1024) -> str:
+                  maxsize: Optional[int] = 256 * 1024 * 1024) -> str:
     r = requests.get(url, params=params, stream=True)
     size = 0
     with tempfile.NamedTemporaryFile() as fout:

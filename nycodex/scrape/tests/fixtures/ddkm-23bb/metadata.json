@@ -1,0 +1,5 @@
+{
+    "fields": ["rondout_elevation", "neversink_storage", "neversink_elevation", "rondout_storage", "pepacton_elevation", "cannonsville_storage", "cannonsville_elevation", "pepacton_storage", "schoharie_elevation", "schoharie_storage", "ashokan_west_elevation", "ashokan_west_storage", "ashokan_east_elevation", "ashokan_east_storage", "neversink_date"],
+    "names": ["Rondout Elevation", "Neversink Storage", "Neversink Elevation", "Rondout Storage", "Pepacton Elevation", "Cannonsville Storage", "Cannonsville Elevation", "Pepacton Storage", "Schoharie Elevation", "Schoharie Storage", "Ashokan West Elevation", "Ashokan West Storage", "Ashokan East Elevation", "Ashokan East Storage", "Date              "],
+    "types": ["number", "number", "number", "number", "number", "number", "number", "number", "number", "number", "number", "number", "number", "number", "date"]
+}

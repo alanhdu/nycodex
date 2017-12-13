@@ -1,2 +1,4 @@
-from .dataset import scrape_dataset, scrape_geojson  # noqa
-from .exceptions import SocrataTypeError  # noqa
+from .dataset import scrape
+from .exceptions import SocrataTypeError
+
+__all__ = [scrape, SocrataTypeError]

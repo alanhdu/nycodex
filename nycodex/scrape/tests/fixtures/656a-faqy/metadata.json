@@ -1,0 +1,6 @@
+{
+    "fields": ["website", "postcode", "tel", "nta", "business_name", "longitude", "bin", "address", "community_board", "census_tract", "latitude", "borough", "bbl", "community_council"],
+    "names": ["website", "Postcode", "Tel", "NTA", "Business Name", "Longitude", "BIN", "Address", "Community Board", "Census Tract", "Latitude", "Borough", "BBL", "Community Council "],
+    "types": ["url", "number", "text", "text", "text", "number", "number", "location", "number", "number", "number", "text", "number", "number"]
+}
+

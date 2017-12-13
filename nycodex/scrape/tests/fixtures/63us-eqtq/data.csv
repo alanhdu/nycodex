@@ -1,0 +1,10 @@
+Request,What question are you trying to answer with this data?,Submission Date,Response,Final Determination Given (Y/N)
+"NYC Building Characteristics - Complete list of NYC buildings with # floors, commercial & residential units, # elevators",,11/22/2011 06:36:00 PM,,false
+Department of Buildings data - Create an API for all building data from the NYC building information system. ,,02/17/2012 03:49:00 PM,,false
+"NYC approved Electrical Permit data - Provide excel spreadsheets containing data from NYC Buildings Dept. Electrical Division approved Electrical Permits. 
+
+Since all other Building Dept permit data appears to be available as a downloadable excel spreadsheet, it seems odd that Electrical Permit data is not also available.",,11/24/2012 11:45:00 PM,,false
+311 Data - Would be great to have several years of 311 data added to the NYC open data site!,,10/10/2011 04:07:00 PM,"Hello, All 311 Service Requests from 2010 to Present are already on the OpenData portal here- https://data.cityofnewyork.us/Social-Services/311-Service-Requests-from-2010-to-Present/erm2-nwe9.
+
+- NYC Open Data",true
+Floor Plans for All Real Estate - One of the biggest problems in NYC is the fact that real estate agents lie to you or hide the details about the size the of property to try to get you into the space to see it.  This is counterproductive and wastes a significant amount of New Yorkers' time.  I'd love a dataset of all the floorplans so I can build applications to help find the best place to live / have office space.,"Square footage should also be available.  It should be required by law that in order to sell / lease apartments, the current floor plan is posted.  If it isn't there should be a fine.  The dataset should be required to be public domain so that software developers can build applications on top of it.",11/09/2011 10:24:00 PM,,false

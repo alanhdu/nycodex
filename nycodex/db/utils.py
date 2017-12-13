@@ -1,34 +1,14 @@
 import enum
-import re
 from typing import Iterable, Type
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 
-# Temporary, as SQLAlchemy only reads keys from enums currently; should
-# hopefully be fixed in 1.3 as mentioned in the following issue:
+# TODO (SQLAlchemy 1.3). See
 # https://bitbucket.org/zzzeek/sqlalchemy/issues/3906/
 def enum_values(enum: Type[enum.Enum]):
     return [v.value for v in enum.__members__.values()]
-
-
-# http://docs.sqlalchemy.org/en/latest/dialects/postgresql.html#using-enum-with-array
-class EnumArray(postgresql.ARRAY):
-    def bind_expression(self, bindvalue):
-        return sa.cast(bindvalue, self)
-
-    def result_processor(self, dialect, coltype):
-        super_rp = super().result_processor(dialect, coltype)
-
-        def handle_raw_string(value):
-            inner = re.match(r"^{(.*)}$", value).group(1)
-            return inner.split(",")
-
-        def process(value):
-            return super_rp(handle_raw_string(value))
-
-        return process
 
 
 class DbMixin:

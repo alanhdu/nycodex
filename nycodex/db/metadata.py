@@ -5,7 +5,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 from .base import Base, engine
-from .utils import DbMixin, enum_values, EnumArray
+from .utils import DbMixin, enum_values
 
 
 @enum.unique
@@ -36,8 +36,8 @@ class AssetType(enum.Enum):
     VISUALIZATION = 'visualization'
 
 
-@enum.unique
-class Category(enum.Enum):
+# TODO: Use Array of Enums when psycopg2 supports it
+class Category:
     DEMOGRAPHICS = "demographics"
     ECONOMY = "economy"
     EDUCATION = "education"
@@ -53,7 +53,7 @@ class Category(enum.Enum):
     TRANSPORTATION = "transportation"
 
 
-# TODO(alan): Use Array of Enums when we figure out how
+# TODO: Use Array of Enums when psycopg2 supports it
 class DataType:
     CALENDAR_DATE = 'calendar_date'
     CHECKBOX = 'checkbox'
@@ -88,9 +88,7 @@ class Dataset(Base, DbMixin):
     created_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=False)
     updated_at = sa.Column(sa.TIMESTAMP(timezone=True), nullable=False)
 
-    categories = sa.Column(
-        EnumArray(postgresql.ENUM(*enum_values(Category), name="Category")),
-        nullable=False)
+    categories = sa.Column(postgresql.ARRAY(sa.TEXT), nullable=False)
     domain_category = sa.Column(
         postgresql.ENUM(*enum_values(DomainCategory), name="DomainCategory"),
         nullable=False)

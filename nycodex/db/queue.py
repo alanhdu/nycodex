@@ -31,6 +31,7 @@ a couple dozen long-lived transactions should be easy for Postgres).
 """
 
 import contextlib
+from typing import Iterator, Optional, Tuple
 
 import sqlalchemy as sa
 
@@ -46,6 +47,10 @@ queue = sa.Table(
     sa.Column("processed_at", sa.TIMESTAMP(timezone=False), nullable=True),
     sa.Column("retries", sa.SMALLINT, nullable=False, default=0),
 )   # yapf: disable
+
+
+# TODO(alan): Use NewType for dataset_id
+Pair = Tuple[Optional[sa.engine.base.Connection], Optional[str]]
 
 
 def update_from_metadata(conn: sa.engine.base.Connection) -> None:
@@ -66,7 +71,8 @@ def update_from_metadata(conn: sa.engine.base.Connection) -> None:
     conn.execute(query)
 
 
-def _next_row(conn: sa.engine.base.Connection, query, success):
+def _next_row(conn: sa.engine.base.Connection, query,
+              success) -> Iterator[Pair]:
     query = (query
              .where(queue.c.retries < 3)
              .order_by(sa.asc(queue.c.retries))
@@ -92,7 +98,7 @@ def _next_row(conn: sa.engine.base.Connection, query, success):
 
 
 @contextlib.contextmanager
-def next_row_to_scrape(conn):
+def next_row_to_scrape(conn: sa.engine.Connection) -> Iterator[Pair]:
     query = (sa
              .select([queue.c.dataset_id])
              .where(sa.and_(
@@ -105,7 +111,7 @@ def next_row_to_scrape(conn):
 
 
 @contextlib.contextmanager
-def next_row_to_process(conn):
+def next_row_to_process(conn: sa.engine.Connection) -> Iterator[Pair]:
     query = (sa
              .select([queue.c.dataset_id])
              .where(sa.and_(

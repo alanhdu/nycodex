@@ -70,8 +70,6 @@ class DataType:
 
 
 class Dataset(Base, DbMixin):
-    __tablename__ = "dataset"
-    __table_args__ = {'schema': 'metadata'}
 
     id = sa.Column(sa.CHAR(9), primary_key=True)
     owner_id = sa.Column(sa.CHAR(9), nullable=False)
@@ -111,6 +109,7 @@ class Dataset(Base, DbMixin):
     column_types = sa.Column(postgresql.ARRAY(sa.TEXT), nullable=False)
     column_descriptions = sa.Column(postgresql.ARRAY(sa.TEXT), nullable=False)
 
+    __tablename__ = "dataset"
     __table_args__ = (
         sa.Index(
             'idx_dataset_domain_tags_gin', domain_tags,

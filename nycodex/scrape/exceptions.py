@@ -1,9 +1,12 @@
+from typing import Any
+
+
 class SocrataError(Exception):
     pass
 
 
 class SocrataTypeError(SocrataError, TypeError):
-    def __init__(self, field: str, expected: str, actual):
+    def __init__(self, field: str, expected: str, actual: Any) -> None:
         msg = f"{field} should be {expected} type -- got {actual} instead"
         super().__init__(msg)
 
@@ -13,7 +16,7 @@ class SocrataTypeError(SocrataError, TypeError):
 
 
 class SocrataColumnNameTooLong(SocrataError, ValueError):
-    def __init__(self, field: str):
+    def __init__(self, field: str) -> None:
         super().__init__(f'The field "{field}" is too long')
 
 

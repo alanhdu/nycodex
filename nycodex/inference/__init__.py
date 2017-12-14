@@ -1,3 +1,5 @@
+from typing import Any, List, Sequence
+
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
@@ -26,11 +28,12 @@ def process_dataset(dataset: db.Dataset) -> None:
         else:
             return column
 
-    selects = [(
+    selects: List[Sequence[Any]] = [(
         sa.func.count(sa.distinct(column)).label(f"{column.name}_count"),
         sa.func.max(length(column)).label(f"{column.name}_max"),
         sa.func.min(length(column)).label(f"{column.name}_min"),
-    ) for column in columns] + [(
+    ) for column in columns]
+    selects += [(
         sa.func.max(column).label(f"{column.name}_max_text"),
         sa.func.min(column).label(f"{column.name}_min_text"),
     ) for column in columns if isinstance(column.type, sa.String)]

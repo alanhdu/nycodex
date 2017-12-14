@@ -1,6 +1,6 @@
 import os
 import tempfile
-import typing
+from typing import Iterable, List, Tuple
 
 import geoalchemy2
 import geopandas as gpd
@@ -120,8 +120,8 @@ def scrape_dataset(conn, dataset_id, names, fields, types) -> None:
     df.columns = fields  # replace with normalized names
 
     columns, df = dataset_columns(df, types)
-    columns = ", ".join(
-        f"\"{name}\" {ty}" for name, ty in zip(df.columns, columns))
+    schema = ", ".join(
+        f'"{name}" {ty}' for name, ty in zip(df.columns, columns))
     with tempfile.TemporaryDirectory() as tmpdir:
         path = os.path.abspath(os.path.join(tmpdir, "data.csv"))
         df.to_csv(path, header=False, index=False)
@@ -132,7 +132,7 @@ def scrape_dataset(conn, dataset_id, names, fields, types) -> None:
 
         trans = conn.begin()
         conn.execute(f'DROP TABLE IF EXISTS "{RAW_SCHEMA}.{dataset_id}"')
-        conn.execute(f'CREATE TABLE "{RAW_SCHEMA}.{dataset_id}" ({columns})')
+        conn.execute(f'CREATE TABLE "{RAW_SCHEMA}.{dataset_id}" ({schema})')
         conn.execute(f"""
         COPY "{RAW_SCHEMA}.{dataset_id}"
         FROM '{path}'
@@ -141,8 +141,8 @@ def scrape_dataset(conn, dataset_id, names, fields, types) -> None:
         trans.commit()
 
 
-def dataset_columns(df: pd.DataFrame, types: typing.Iterable[str]
-                    ) -> typing.Tuple[typing.List[str], pd.DataFrame]:
+def dataset_columns(df: pd.DataFrame,
+                    types: Iterable[str]) -> Tuple[List[str], pd.DataFrame]:
     columns = []
     for field, ty in zip(df.columns, types):
         column = df[field]
@@ -157,7 +157,8 @@ def dataset_columns(df: pd.DataFrame, types: typing.Iterable[str]
     return columns, df
 
 
-def _dataset_column(column: pd.Series, ty: str, field: str) -> str:
+def _dataset_column(column: pd.Series, ty: str,
+                    field: str) -> Tuple[str, pd.Series]:
     if ty == db.DataType.CALENDAR_DATE:
         return "DATE", column
     elif ty == db.DataType.CHECKBOX:

@@ -1,5 +1,5 @@
 import hashlib
-import typing
+from typing import Any, Dict, Optional
 
 import dateutil.parser
 import pytz
@@ -12,7 +12,8 @@ BASE = "https://api.us.socrata.com/api/catalog/v1"
 DOMAIN = "data.cityofnewyork.us"
 
 
-def api(path: str, params: typing.Dict[str, str] = None) -> requests.Response:
+def api(path: str,
+        params: Optional[Dict[str, Any]] = None) -> requests.Response:
     if params is None:
         params = {}
     params.update({
@@ -35,14 +36,14 @@ def shorten(s: str) -> str:
     return f"{beginning}-{ending}"
 
 
-def get_facets():
+def get_facets() -> None:
     url = "{}/domains/{}/facets".format(BASE, DOMAIN)
     facets = requests.get(url, params={"limit": 10000}).json()
     for facet in facets:  # noqa
         pass
 
 
-def parse_json(result: dict) -> db.Dataset:
+def parse_json(result: Dict[str, Any]) -> db.Dataset:
     owner = result['owner']
     classification = result['classification']
     resource = result['resource']
@@ -91,7 +92,7 @@ def parse_json(result: dict) -> db.Dataset:
     )
 
 
-def main():
+def main() -> None:
     log = get_logger(__name__)
 
     db.Base.metadata.create_all(db.engine)

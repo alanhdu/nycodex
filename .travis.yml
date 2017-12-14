@@ -28,6 +28,7 @@ install:
 
 script:
 - pipenv run flake8
+- pipenv run mypy nycodex scripts/
 - pipenv run py.test --verbose --cov
 
 after_success:

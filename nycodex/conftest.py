@@ -9,7 +9,9 @@ from nycodex import db
 def engine():
     with testing.postgresql.Postgresql() as postgresql:
         engine = sa.create_engine(postgresql.url())
-        engine.execute("CREATE SCHEMA IF NOT EXISTS inference")
+        engine.execute("CREATE EXTENSION IF NOT EXISTS postgis;")
+        engine.execute("CREATE SCHEMA IF NOT EXISTS inference;")
+        engine.execute("CREATE SCHEMA IF NOT EXISTS raw;")
         db.Base.metadata.create_all(engine)
         yield engine
 

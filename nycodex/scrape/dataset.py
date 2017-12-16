@@ -80,28 +80,19 @@ def scrape_geojson(conn: sa.engine.base.Connection, dataset_id: str) -> None:
 
     df['geometry'] = df['geometry'].map(
         lambda x: geoalchemy2.WKTElement(x.wkt, srid=4326))
-    df.to_sql(
-        f"{dataset_id}-new",
-        db.engine,
-        schema=RAW_SCHEMA,
-        if_exists='replace',
-        index=False,
-        dtype={
-            "geometry": geoalchemy2.Geometry(geometry_type=ty, srid=4326)
-        })
 
     trans = conn.begin()
     try:
-        conn.execute(f"DROP TABLE IF EXISTS\"{RAW_SCHEMA}.{dataset_id}\"")
-        conn.execute(f"""
-        ALTER TABLE \"{RAW_SCHEMA}.{dataset_id}-new\"
-        RENAME TO "{RAW_SCHEMA}.{dataset_id}"
-        """)
-        conn.execute(f"""
-        UPDATE dataset
-        SET scraped_at = NOW()
-        WHERE id = '{dataset_id}'
-        """)
+        conn.execute(f'DROP TABLE IF EXISTS "{RAW_SCHEMA}.{dataset_id}"')
+        df.to_sql(
+            f"{dataset_id}",
+            conn,
+            if_exists='replace',
+            index=False,
+            schema=RAW_SCHEMA,
+            dtype={
+                "geometry": geoalchemy2.Geometry(geometry_type=ty, srid=4326)
+            })
     except Exception:
         trans.rollback()
         raise
@@ -131,10 +122,10 @@ def scrape_dataset(conn, dataset_id, names, fields, types) -> None:
         os.chmod(path, 0o775)
 
         trans = conn.begin()
-        conn.execute(f'DROP TABLE IF EXISTS "{RAW_SCHEMA}.{dataset_id}"')
-        conn.execute(f'CREATE TABLE "{RAW_SCHEMA}.{dataset_id}" ({schema})')
+        conn.execute(f'DROP TABLE IF EXISTS {RAW_SCHEMA}."{dataset_id}"')
+        conn.execute(f'CREATE TABLE {RAW_SCHEMA}."{dataset_id}" ({schema})')
         conn.execute(f"""
-        COPY "{RAW_SCHEMA}.{dataset_id}"
+        COPY {RAW_SCHEMA}."{dataset_id}"
         FROM '{path}'
         WITH CSV NULL AS ''
         """)

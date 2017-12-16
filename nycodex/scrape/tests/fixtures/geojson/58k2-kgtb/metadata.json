@@ -1,0 +1,16 @@
+{
+    "num_rows": 2,
+    "geometry_type": "MultiPolygon",
+    "columns": {
+        "eastmap": "O",
+        "northmap": "O",
+        "objectid": "i",
+        "section": "i",
+        "sectionalm": "O",
+        "shape_area": "f",
+        "shape_len": "f",
+        "showmap": "i",
+        "southmap": "O",
+        "westmap": "O"
+    }
+}

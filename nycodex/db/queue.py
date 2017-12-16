@@ -87,13 +87,24 @@ def _next_row(conn: sa.engine.base.Connection, query,
         yield None, None
         return
 
+    dataset_id = row.dataset_id
     try:
-        yield conn, row.dataset_id
-        conn.execute(success.where(queue.c.dataset_id == row.dataset_id))
-        trans.commit()
-    except Exception:
-        conn.execute(fail.where(queue.c.dataset_id == row.dataset_id))
-        trans.commit()
+        try:
+            yield conn, row.dataset_id
+            conn.execute(success.where(queue.c.dataset_id == dataset_id))
+            trans.commit()
+        except Exception:
+            conn.execute(fail.where(queue.c.dataset_id == dataset_id))
+            trans.commit()
+            raise
+    except sa.exc.InternalError as e:
+        assert "current transaction is aborted" in str(e)
+        root = trans
+        while root._actual_parent is not None:
+            root = root._actual_parent
+        root.rollback()
+        conn.execute(fail.where(queue.c.dataset_id == dataset_id))
+        conn.close()
         raise
 
 

@@ -1,7 +1,8 @@
 import datetime as dt
 
-import sqlalchemy as sa
+import psycopg2
 import pytest
+import sqlalchemy as sa
 
 from nycodex import db
 from nycodex.db.queue import queue
@@ -121,13 +122,15 @@ def test_next_row_to_scrape(conn, fake_dataset):
 
     # On error, increment `retries` while leaving `updated_at` alone
     with pytest.raises(ZeroDivisionError):
-        with db.queue.next_row_to_scrape(conn) as (__, dataset_id):
+        with db.queue.next_row_to_scrape(conn) as (c, dataset_id):
+            assert c is not None
             assert dataset_id == "abcd-0000"
             raise ZeroDivisionError
     assert conn.execute(query).fetchone() == ("abcd-0000", orig, None, None, 1)
 
     # On success, reset `retries` and update `scraped_at`
-    with db.queue.next_row_to_scrape(conn) as (__, dataset_id):
+    with db.queue.next_row_to_scrape(conn) as (c, dataset_id):
+        assert c is not None
         assert dataset_id == fake_dataset
 
     row = conn.execute(query).fetchone()
@@ -180,3 +183,28 @@ def test_next_row_to_process(conn, fake_dataset):
     with db.queue.next_row_to_process(conn) as (c, dataset_id):
         assert c is None
         assert dataset_id is None
+
+
+def test_db_failure(engine):
+    Session = sa.orm.sessionmaker(bind=engine)
+
+    with engine.connect() as conn:
+        session = Session(bind=conn)
+        trans = conn.begin()
+
+        dataset = dataset_factory("abcd-0000")
+        session.add(dataset)
+        session.commit()
+
+        conn.execute(queue.insert().values(
+            dataset_id=dataset.id,
+            retries=0,
+            updated_at=dt.datetime.now() - dt.timedelta(days=1)))
+        with pytest.raises(sa.exc.InternalError):
+            with db.queue.next_row_to_scrape(conn) as (c, dataset_id):
+                assert c is not None
+                with pytest.raises(psycopg2.ProgrammingError):
+                    conn.execute("SELECT * FROM non_existent_datbase")
+            trans.rollback()
+
+        assert conn.closed

@@ -8,15 +8,16 @@ BASE = "https://data.cityofnewyork.us/api"
 logger = get_logger(__name__)
 
 
-def scrape_socrata(conn) -> None:
+def scrape_socrata() -> None:
     log = logger.bind()
     while True:
         try:
-            with db.queue.next_row_to_scrape(conn) as (c, dataset_id):
-                log = logger.bind(dataset_id=dataset_id)
-                if dataset_id is None:
-                    break
-                scrape(c, dataset_id)
+            with db.engine.connect() as conn:
+                with db.queue.next_row_to_scrape(conn) as (c, dataset_id):
+                    log = logger.bind(dataset_id=dataset_id)
+                    if dataset_id is None:
+                        break
+                    scrape(c, dataset_id)
         except SocrataError as e:
             log.error("Failed to import dataset", exc_info=e)
         except Exception as e:
@@ -25,8 +26,7 @@ def scrape_socrata(conn) -> None:
 
 
 def main():
-    with db.engine.connect() as conn:
-        scrape_socrata(conn)
+    scrape_socrata()
 
 
 if __name__ == "__main__":

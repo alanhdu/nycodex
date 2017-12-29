@@ -118,8 +118,11 @@ class Dataset(Base, DbMixin):
         sa.CheckConstraint("page_views_total >= page_views_last_week"),
     )
 
-    def to_table(self) -> sa.Table:
+    def to_table(self, conn=None) -> sa.Table:
+        if conn is None:
+            conn = engine
         with warnings.catch_warnings():
             # Ignore "did not recognize type money / geometry" warings
             warnings.simplefilter("ignore", category=sa.exc.SAWarning)
-            return sa.Table(self.id, Base.metadata, autoload_with=engine)
+            return sa.Table(self.id, Base.metadata, autoload_with=conn,
+                            schema="raw")

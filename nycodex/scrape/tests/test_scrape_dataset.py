@@ -32,9 +32,12 @@ def test_scrape_dataset(conn, dataset_id, mocker):
     with mocker.patch.object(utils, "download_file", return_value=fake(fname)):
         scrape_dataset(conn, dataset_id, names, fields, types)
 
+    table = db.Dataset(id=dataset_id).to_table(conn)
+    assert table.columns.keys() == fields
+
+    # Use Pandas for type checking
     df = pd.read_sql(f'SELECT * FROM raw."{dataset_id}"', conn)
     assert (df.columns == fields).all()
-
     for field, ty in zip(fields, types):
         if ty == db.DataType.CALENDAR_DATE:
             for d in df[field]:

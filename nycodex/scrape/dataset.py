@@ -9,6 +9,7 @@ import sqlalchemy as sa
 
 from nycodex import db
 from nycodex.logging import get_logger
+
 from . import exceptions, utils
 
 BASE = "https://data.cityofnewyork.us/api"

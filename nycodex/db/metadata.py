@@ -119,10 +119,14 @@ class Dataset(Base, DbMixin):
     )
 
     def to_table(self, conn=None) -> sa.Table:
+        return Dataset.table(self.id, conn)
+
+    @staticmethod
+    def table(name: str, conn=None) -> sa.Table:
         if conn is None:
             conn = engine
         with warnings.catch_warnings():
             # Ignore "did not recognize type money / geometry" warings
             warnings.simplefilter("ignore", category=sa.exc.SAWarning)
-            return sa.Table(self.id, Base.metadata, autoload_with=conn,
-                            schema="raw")
+            return sa.Table(
+                name, Base.metadata, autoload_with=conn, schema="raw")

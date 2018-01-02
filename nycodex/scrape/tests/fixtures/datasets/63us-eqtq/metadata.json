@@ -3,4 +3,3 @@
     "names": ["Submission Date", "What question are you trying to answer with this data?", "Response", "Final Determination Given (Y/N)", "Request"],
     "types": ["calendar_date", "text", "text", "checkbox", "text"]
 }
-

@@ -121,9 +121,9 @@ def fast_filter_inclusions(conn: sa.engine.Connection,
     return conn.execute(query).fetchall()
 
 
-def inclusion_dependency(conn: sa.engine.Connection,
-                         dataset: db.Dataset) -> None:
+def find_all_inclusions(conn: sa.engine.Connection, dataset_id: str) -> None:
     """Find all datasets that include a column of `dataset`"""
+    dataset = db.Dataset.get_by_id(conn, dataset_id)
 
     table = dataset.to_table(conn)
     inclusions = [{

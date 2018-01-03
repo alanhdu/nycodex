@@ -13,12 +13,12 @@ def scrape_socrata() -> None:
     while True:
         try:
             with db.engine.connect() as conn:
-                with db.queue.next_row_to_scrape(conn) as (c, dataset_id):
+                with db.queue.next_row_to_scrape(conn) as (tconn, dataset_id):
                     log = logger.bind(dataset_id=dataset_id)
                     if dataset_id is None:
                         break
-                    scrape(c, dataset_id)
-                    inference.preprocess_dataset(c, dataset_id)
+                    scrape(tconn, dataset_id)
+                    inference.preprocess_dataset(tconn, dataset_id)
         except SocrataError as e:
             log.error("Failed to import dataset", exc_info=e)
         except Exception as e:

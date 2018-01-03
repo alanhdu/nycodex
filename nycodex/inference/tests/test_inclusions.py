@@ -97,13 +97,13 @@ def test_integration(conn, session, A, B, C):
     cquery = sa.select([sa.func.count()]).select_from(db.inclusions)
     assert 0 == conn.execute(cquery).fetchone()[0]
 
-    inference.inclusion_dependency(conn, A)
+    inference.find_all_inclusions(conn, A.id)
     assert 0 == conn.execute(cquery).fetchone()[0]
 
-    inference.inclusion_dependency(conn, C)
+    inference.find_all_inclusions(conn, C.id)
     assert 0 == conn.execute(cquery).fetchone()[0]
 
-    inference.inclusion_dependency(conn, B)
+    inference.find_all_inclusions(conn, B.id)
     inclusions = conn.execute(sa.select([db.inclusions])).fetchall()
     assert len(inclusions) == 1
     assert dict(inclusions[0]) == {

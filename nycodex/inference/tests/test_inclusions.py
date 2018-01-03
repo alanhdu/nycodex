@@ -76,9 +76,9 @@ def test_is_inclusion(conn, A, B, C):
 def test_preprocessing(conn, session, A, B, C):
     session.add_all([A, B, C])
     session.commit()
-    inference.preprocess_dataset(conn, A)
-    inference.preprocess_dataset(conn, B)
-    inference.preprocess_dataset(conn, C)
+    inference.preprocess_dataset(conn, A.id)
+    inference.preprocess_dataset(conn, B.id)
+    inference.preprocess_dataset(conn, C.id)
 
     assert [] == inference.fast_filter_inclusions(conn, A)
     # b is not an option because it's not unique
@@ -90,9 +90,9 @@ def test_preprocessing(conn, session, A, B, C):
 def test_integration(conn, session, A, B, C):
     session.add_all([A, B, C])
     session.commit()
-    inference.preprocess_dataset(conn, A)
-    inference.preprocess_dataset(conn, B)
-    inference.preprocess_dataset(conn, C)
+    inference.preprocess_dataset(conn, A.id)
+    inference.preprocess_dataset(conn, B.id)
+    inference.preprocess_dataset(conn, C.id)
 
     cquery = sa.select([sa.func.count()]).select_from(db.inclusions)
     assert 0 == conn.execute(cquery).fetchone()[0]

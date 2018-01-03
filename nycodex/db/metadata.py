@@ -4,7 +4,7 @@ import warnings
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-from .base import Base, engine
+from .base import Base, engine, Session
 from .utils import DbMixin, enum_values
 
 
@@ -130,3 +130,10 @@ class Dataset(Base, DbMixin):
             warnings.simplefilter("ignore", category=sa.exc.SAWarning)
             return sa.Table(
                 name, Base.metadata, autoload_with=conn, schema="raw")
+
+    @classmethod
+    def get_by_id(cls, conn: sa.engine.Connection, id: str) -> 'Dataset':
+        dataset = Session(bind=conn).query(cls).get(id)
+        if dataset is None:
+            raise ValueError
+        return dataset

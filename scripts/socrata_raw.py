@@ -1,4 +1,4 @@
-from nycodex import db
+from nycodex import db, inference
 from nycodex.logging import get_logger
 from nycodex.scrape import scrape
 from nycodex.scrape.exceptions import SocrataError
@@ -18,6 +18,7 @@ def scrape_socrata() -> None:
                     if dataset_id is None:
                         break
                     scrape(c, dataset_id)
+                    inference.preprocess_dataset(c, dataset_id)
         except SocrataError as e:
             log.error("Failed to import dataset", exc_info=e)
         except Exception as e:

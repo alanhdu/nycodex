@@ -6,8 +6,8 @@ from sqlalchemy.dialects import postgresql
 from .. import db
 
 
-def preprocess_dataset(conn: sa.engine.Connection,
-                       dataset: db.Dataset) -> None:
+def preprocess_dataset(conn: sa.engine.Connection, dataset_id: str) -> None:
+    dataset = db.Session(bind=conn).query(db.Dataset).get(dataset_id)
     table = dataset.to_table(conn)
 
     # Use semantic information from Socrata

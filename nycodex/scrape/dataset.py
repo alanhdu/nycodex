@@ -19,10 +19,8 @@ NULL_VALUES = frozenset({"null", "", "n/a", "na", "nan", "none"})
 logger = get_logger(__name__)
 
 
-def scrape(conn, dataset_id: str) -> None:
-    session = db.Session(bind=conn)
-    dataset = session.query(
-        db.Dataset).filter(db.Dataset.id == dataset_id).first()
+def scrape(conn: sa.engine.Connection, dataset_id: str) -> None:
+    dataset = db.Dataset.get_by_id(conn, dataset_id)
 
     log = logger.bind(dataset_id=dataset.id, dataset_type=dataset.asset_type)
     log.info(f"Scraping dataset {dataset_id}")
@@ -38,7 +36,7 @@ def scrape(conn, dataset_id: str) -> None:
         log.warning("Illegal dataset_type")
 
 
-def scrape_geojson(conn: sa.engine.base.Connection, dataset_id: str) -> None:
+def scrape_geojson(conn: sa.engine.Connection, dataset_id: str) -> None:
     log = logger.bind(dataset_id=dataset_id, method="scrape_geojson")
 
     params = {"method": "export", "format": "GeoJSON"}

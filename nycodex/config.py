@@ -1,4 +1,7 @@
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 __all__ = ["DATABASE_URI", "LOG_LEVEL"]
 

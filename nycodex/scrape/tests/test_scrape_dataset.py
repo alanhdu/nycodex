@@ -29,8 +29,8 @@ def test_scrape_dataset(conn, dataset_id, mocker):
     def fake(fname):
         yield fname
 
-    with mocker.patch.object(utils, "download_file", return_value=fake(fname)):
-        scrape_dataset(conn, dataset_id, names, fields, types)
+    mocker.patch.object(utils, "download_file", return_value=fake(fname))
+    scrape_dataset(conn, dataset_id, names, fields, types)
 
     table = db.Dataset(id=dataset_id).to_table(conn)
     assert table.columns.keys() == fields
@@ -46,7 +46,7 @@ def test_scrape_dataset(conn, dataset_id, mocker):
         elif ty == db.DataType.CHECKBOX:
             assert pd.api.types.is_bool_dtype(df[field])
         elif ty == db.DataType.DATE:
-            assert pd.api.types.is_datetimetz(df[field])
+            assert pd.api.types.is_datetime64tz_dtype(df[field])
         elif ty == db.DataType.MONEY:
             assert (df[field].str[0] == '$').all()
         elif ty in {db.DataType.NUMBER, db.DataType.PERCENT}:
@@ -64,13 +64,12 @@ def test_scrape_geojson(conn, dataset_id, mocker):
     def fake(fname):
         yield fname
 
-    with mocker.patch.object(utils, "download_file", return_value=fake(fname)):
-        scrape_geojson(conn, dataset_id)
+    mocker.patch.object(utils, "download_file", return_value=fake(fname))
+    scrape_geojson(conn, dataset_id)
 
-    df = gpd.read_postgis(
-        f'SELECT * FROM raw."{dataset_id}"', conn, geom_col="geometry")
+    df = pd.read_sql(
+        f'SELECT * FROM raw."{dataset_id}"', conn)
     assert len(df) == metadata['num_rows']
-    assert df['geometry'][0].type == metadata['geometry_type']
-    assert len(df.columns) == len(metadata["columns"]) + 1
+    assert len(df.columns) == len(metadata["columns"])
     for name, ty in metadata["columns"].items():
         assert df[name].dtype.kind == ty

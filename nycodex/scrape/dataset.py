@@ -2,7 +2,6 @@ import os
 import tempfile
 from typing import Iterable, List, Tuple
 
-import geoalchemy2
 import geopandas as gpd
 import pandas as pd
 import sqlalchemy as sa
@@ -69,16 +68,7 @@ def scrape_geojson(conn: sa.engine.Connection, dataset_id: str) -> None:
 
     log.info("Inserting")
 
-    # TODO: Use ogr2ogr2?
-    # srid 4326 for latitude/longitude coordinates
-    ty = df.geometry.map(lambda x: x.geometryType()).unique()
-    if len(ty) != 1:
-        msg = f"Too many geometry types detected: {ty}"
-        raise exceptions.SocrataParseError(msg)
-    ty = ty[0]
-
-    df['geometry'] = df['geometry'].map(
-        lambda x: geoalchemy2.WKTElement(x.wkt, srid=4326))
+    del df["geometry"]
 
     trans = conn.begin()
     try:
@@ -89,9 +79,7 @@ def scrape_geojson(conn: sa.engine.Connection, dataset_id: str) -> None:
             if_exists='replace',
             index=False,
             schema=RAW_SCHEMA,
-            dtype={
-                "geometry": geoalchemy2.Geometry(geometry_type=ty, srid=4326)
-            })
+            )
     except Exception:
         trans.rollback()
         raise

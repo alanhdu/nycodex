@@ -4,7 +4,7 @@ import warnings
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-from .base import Base, engine, Session
+from .base import Base, Session, engine
 from .utils import DbMixin, enum_values
 
 
@@ -25,15 +25,15 @@ class DomainCategory(enum.Enum):
 
 @enum.unique
 class AssetType(enum.Enum):
-    CALENDAR = 'calendar'
-    CHART = 'chart'
-    DATALENS = 'datalens'
-    DATASET = 'dataset'
-    FILE = 'file'
-    FILTER = 'filter'
-    HREF = 'href'
-    MAP = 'map'
-    VISUALIZATION = 'visualization'
+    CALENDAR = "calendar"
+    CHART = "chart"
+    DATALENS = "datalens"
+    DATASET = "dataset"
+    FILE = "file"
+    FILTER = "filter"
+    HREF = "href"
+    MAP = "map"
+    VISUALIZATION = "visualization"
 
 
 # TODO: Use Array of Enums when psycopg2 supports it
@@ -55,18 +55,18 @@ class Category:
 
 # TODO: Use Array of Enums when psycopg2 supports it
 class DataType:
-    CALENDAR_DATE = 'calendar_date'
-    CHECKBOX = 'checkbox'
-    DATE = 'date'
-    EMAIL = 'email'
-    HTML = 'html'
-    LOCATION = 'location'
-    MONEY = 'money'
-    NUMBER = 'number'
-    PERCENT = 'percent'
-    PHONE = 'phone'
-    TEXT = 'text'
-    URL = 'url'
+    CALENDAR_DATE = "calendar_date"
+    CHECKBOX = "checkbox"
+    DATE = "date"
+    EMAIL = "email"
+    HTML = "html"
+    LOCATION = "location"
+    MONEY = "money"
+    NUMBER = "number"
+    PERCENT = "percent"
+    PHONE = "phone"
+    TEXT = "text"
+    URL = "url"
 
 
 class Dataset(Base, DbMixin):
@@ -89,10 +89,12 @@ class Dataset(Base, DbMixin):
     categories = sa.Column(postgresql.ARRAY(sa.TEXT), nullable=False)
     domain_category = sa.Column(
         postgresql.ENUM(*enum_values(DomainCategory), name="DomainCategory"),
-        nullable=False)
+        nullable=False,
+    )
     asset_type = sa.Column(
         postgresql.ENUM(*enum_values(AssetType), name="AssetType"),
-        nullable=False)
+        nullable=False,
+    )
 
     dataset_agency = sa.Column(sa.VARCHAR, nullable=True)
     is_auto_updated = sa.Column(sa.BOOLEAN, nullable=False)
@@ -105,15 +107,16 @@ class Dataset(Base, DbMixin):
     column_names = sa.Column(postgresql.ARRAY(sa.TEXT), nullable=False)
     column_field_names = sa.Column(postgresql.ARRAY(sa.TEXT), nullable=False)
     column_sql_names = sa.Column(
-        postgresql.ARRAY(sa.VARCHAR(63)), nullable=False)
+        postgresql.ARRAY(sa.VARCHAR(63)), nullable=False
+    )
     column_types = sa.Column(postgresql.ARRAY(sa.TEXT), nullable=False)
     column_descriptions = sa.Column(postgresql.ARRAY(sa.TEXT), nullable=False)
 
     __tablename__ = "dataset"
     __table_args__ = (
         sa.Index(
-            'idx_dataset_domain_tags_gin', domain_tags,
-            postgresql_using="gin"),
+            "idx_dataset_domain_tags_gin", domain_tags, postgresql_using="gin"
+        ),
         sa.CheckConstraint("page_views_last_month >= page_views_last_week"),
         sa.CheckConstraint("page_views_total >= page_views_last_week"),
     )
@@ -129,10 +132,11 @@ class Dataset(Base, DbMixin):
             # Ignore "did not recognize type money / geometry" warings
             warnings.simplefilter("ignore", category=sa.exc.SAWarning)
             return sa.Table(
-                name, Base.metadata, autoload_with=conn, schema="raw")
+                name, Base.metadata, autoload_with=conn, schema="raw"
+            )
 
     @classmethod
-    def get_by_id(cls, conn: sa.engine.Connection, id: str) -> 'Dataset':
+    def get_by_id(cls, conn: sa.engine.Connection, id: str) -> "Dataset":
         dataset = Session(bind=conn).query(cls).get(id)
         if dataset is None:
             raise ValueError

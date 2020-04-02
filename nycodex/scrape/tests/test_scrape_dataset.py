@@ -12,17 +12,22 @@ from nycodex.scrape import utils
 from nycodex.scrape.dataset import scrape_dataset, scrape_geojson
 
 dataset_fixtures = os.path.join(
-    os.path.split(__file__)[0], "fixtures/datasets")
+    os.path.split(__file__)[0], "fixtures/datasets"
+)
 geojson_fixtures = os.path.join(os.path.split(__file__)[0], "fixtures/geojson")
 
 
 @pytest.mark.parametrize("dataset_id", os.listdir(dataset_fixtures))
 def test_scrape_dataset(conn, dataset_id, mocker):
-    with open(os.path.join(dataset_fixtures, dataset_id,
-                           "metadata.json")) as fin:
+    with open(
+        os.path.join(dataset_fixtures, dataset_id, "metadata.json")
+    ) as fin:
         metadata = json.load(fin)
-    fields, names, types = (metadata['fields'], metadata['names'],
-                            metadata['types'])
+    fields, names, types = (
+        metadata["fields"],
+        metadata["names"],
+        metadata["types"],
+    )
     fname = os.path.join(dataset_fixtures, dataset_id, "data.csv")
 
     @contextlib.contextmanager
@@ -48,7 +53,7 @@ def test_scrape_dataset(conn, dataset_id, mocker):
         elif ty == db.DataType.DATE:
             assert pd.api.types.is_datetime64tz_dtype(df[field])
         elif ty == db.DataType.MONEY:
-            assert (df[field].str[0] == '$').all()
+            assert (df[field].str[0] == "$").all()
         elif ty in {db.DataType.NUMBER, db.DataType.PERCENT}:
             assert pd.api.types.is_numeric_dtype(df[field])
 
@@ -56,8 +61,9 @@ def test_scrape_dataset(conn, dataset_id, mocker):
 @pytest.mark.parametrize("dataset_id", os.listdir(geojson_fixtures))
 def test_scrape_geojson(conn, dataset_id, mocker):
     fname = os.path.join(geojson_fixtures, dataset_id, "data.geojson")
-    with open(os.path.join(geojson_fixtures, dataset_id,
-                           "metadata.json")) as fin:
+    with open(
+        os.path.join(geojson_fixtures, dataset_id, "metadata.json")
+    ) as fin:
         metadata = json.load(fin)
 
     @contextlib.contextmanager
@@ -67,9 +73,8 @@ def test_scrape_geojson(conn, dataset_id, mocker):
     mocker.patch.object(utils, "download_file", return_value=fake(fname))
     scrape_geojson(conn, dataset_id)
 
-    df = pd.read_sql(
-        f'SELECT * FROM raw."{dataset_id}"', conn)
-    assert len(df) == metadata['num_rows']
+    df = pd.read_sql(f'SELECT * FROM raw."{dataset_id}"', conn)
+    assert len(df) == metadata["num_rows"]
     assert len(df.columns) == len(metadata["columns"])
     for name, ty in metadata["columns"].items():
         assert df[name].dtype.kind == ty

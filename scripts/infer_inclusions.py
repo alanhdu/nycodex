@@ -17,7 +17,8 @@ def find_inclusions():
             except Exception as e:
                 log.critical(
                     "Failed to find inclusions with unknown exception",
-                    exc_info=e)
+                    exc_info=e,
+                )
 
 
 if __name__ == "__main__":

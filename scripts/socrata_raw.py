@@ -23,7 +23,8 @@ def scrape_socrata() -> None:
             log.error("Failed to import dataset", exc_info=e)
         except Exception as e:
             log.critical(
-                "Failed to import datset with unknown exception", exc_info=e)
+                "Failed to import datset with unknown exception", exc_info=e
+            )
 
 
 def main():

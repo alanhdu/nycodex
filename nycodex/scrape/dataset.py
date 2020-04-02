@@ -12,7 +12,7 @@ from nycodex.logging import get_logger
 from . import exceptions, utils
 
 BASE = "https://data.cityofnewyork.us/api"
-RAW_SCHEMA = 'raw'
+RAW_SCHEMA = "raw"
 NULL_VALUES = frozenset({"null", "", "n/a", "na", "nan", "none"})
 
 logger = get_logger(__name__)
@@ -25,8 +25,13 @@ def scrape(conn: sa.engine.Connection, dataset_id: str) -> None:
     log.info(f"Scraping dataset {dataset_id}")
 
     if dataset.column_names:
-        scrape_dataset(conn, dataset.id, dataset.column_names,
-                       dataset.column_sql_names, dataset.column_types)
+        scrape_dataset(
+            conn,
+            dataset.id,
+            dataset.column_names,
+            dataset.column_sql_names,
+            dataset.column_types,
+        )
         log.info("Successfully inserted")
     elif dataset.asset_type == db.AssetType.MAP.value:
         scrape_geojson(conn, dataset.id)
@@ -47,7 +52,7 @@ def scrape_geojson(conn: sa.engine.Connection, dataset_id: str) -> None:
             raise exceptions.SocrataParseError from e
 
     for column in df.columns:
-        if column == 'geometry':
+        if column == "geometry":
             continue
         # Bad type inference
         try:
@@ -76,10 +81,10 @@ def scrape_geojson(conn: sa.engine.Connection, dataset_id: str) -> None:
         df.to_sql(
             f"{dataset_id}",
             conn,
-            if_exists='replace',
+            if_exists="replace",
             index=False,
             schema=RAW_SCHEMA,
-            )
+        )
     except Exception:
         trans.rollback()
         raise
@@ -99,7 +104,8 @@ def scrape_dataset(conn, dataset_id, names, fields, types) -> None:
 
     columns, df = dataset_columns(df, types)
     schema = ", ".join(
-        f'"{name}" {ty}' for name, ty in zip(df.columns, columns))
+        f'"{name}" {ty}' for name, ty in zip(df.columns, columns)
+    )
     with tempfile.TemporaryDirectory() as tmpdir:
         path = os.path.abspath(os.path.join(tmpdir, "data.csv"))
         df.to_csv(path, header=False, index=False)
@@ -111,16 +117,19 @@ def scrape_dataset(conn, dataset_id, names, fields, types) -> None:
         trans = conn.begin()
         conn.execute(f'DROP TABLE IF EXISTS {RAW_SCHEMA}."{dataset_id}"')
         conn.execute(f'CREATE TABLE {RAW_SCHEMA}."{dataset_id}" ({schema})')
-        conn.execute(f"""
+        conn.execute(
+            f"""
         COPY {RAW_SCHEMA}."{dataset_id}"
         FROM '{path}'
         WITH CSV NULL AS ''
-        """)
+        """
+        )
         trans.commit()
 
 
-def dataset_columns(df: pd.DataFrame,
-                    types: Iterable[str]) -> Tuple[List[str], pd.DataFrame]:
+def dataset_columns(
+    df: pd.DataFrame, types: Iterable[str]
+) -> Tuple[List[str], pd.DataFrame]:
     columns = []
     for field, ty in zip(df.columns, types):
         column = df[field]
@@ -135,8 +144,9 @@ def dataset_columns(df: pd.DataFrame,
     return columns, df
 
 
-def _dataset_column(column: pd.Series, ty: str,
-                    field: str) -> Tuple[str, pd.Series]:
+def _dataset_column(
+    column: pd.Series, ty: str, field: str
+) -> Tuple[str, pd.Series]:
     if ty == db.DataType.CALENDAR_DATE:
         return "DATE", column
     elif ty == db.DataType.CHECKBOX:
@@ -144,8 +154,12 @@ def _dataset_column(column: pd.Series, ty: str,
     elif ty == db.DataType.DATE:
         return "TIMESTAMP WITH TIME ZONE", column
     elif ty in {
-            db.DataType.EMAIL, db.DataType.HTML, db.DataType.LOCATION,
-            db.DataType.PHONE, db.DataType.TEXT, db.DataType.URL
+        db.DataType.EMAIL,
+        db.DataType.HTML,
+        db.DataType.LOCATION,
+        db.DataType.PHONE,
+        db.DataType.TEXT,
+        db.DataType.URL,
     }:
         return "TEXT", column
     elif ty == db.DataType.MONEY:

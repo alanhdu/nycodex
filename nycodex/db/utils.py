@@ -15,19 +15,24 @@ class DbMixin:
     __table__: sa.Table
 
     @classmethod
-    def upsert(cls, conn: sa.engine.base.Connection,
-               instances: Iterable["DbMixin"]) -> None:
+    def upsert(
+        cls, conn: sa.engine.base.Connection, instances: Iterable["DbMixin"]
+    ) -> None:
         keys = cls.__table__.c.keys()
         for instance in instances:
             data = {
                 key: getattr(instance, key)
-                for key in keys if getattr(instance, key) is not None
+                for key in keys
+                if getattr(instance, key) is not None
             }
-            insert = (postgresql.insert(cls.__table__).values(**data)
-                      .on_conflict_do_update(
-                          index_elements=[cls.__table__.c.id],
-                          set_={k: data[k]
-                                for k in data if k != 'id'}))
+            insert = (
+                postgresql.insert(cls.__table__)
+                .values(**data)
+                .on_conflict_do_update(
+                    index_elements=[cls.__table__.c.id],
+                    set_={k: data[k] for k in data if k != "id"},
+                )
+            )
             conn.execute(insert)
 
     def to_dict(self) -> Dict[str, Any]:

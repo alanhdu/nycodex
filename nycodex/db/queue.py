@@ -39,14 +39,19 @@ from .base import Base
 from .metadata import AssetType, Dataset
 
 queue = sa.Table(
-    "queue", Base.metadata,
-    sa.Column("dataset_id", sa.CHAR(9), sa.ForeignKey(Dataset.__table__.c.id),
-              primary_key=True),
+    "queue",
+    Base.metadata,
+    sa.Column(
+        "dataset_id",
+        sa.CHAR(9),
+        sa.ForeignKey(Dataset.__table__.c.id),
+        primary_key=True,
+    ),
     sa.Column("updated_at", sa.TIMESTAMP(timezone=False), nullable=False),
     sa.Column("scraped_at", sa.TIMESTAMP(timezone=False), nullable=True),
     sa.Column("processed_at", sa.TIMESTAMP(timezone=False), nullable=True),
     sa.Column("retries", sa.SMALLINT, nullable=False, default=0),
-)   # yapf: disable
+)  # yapf: disable
 
 
 # TODO(alan): Use NewType for dataset_id
@@ -55,7 +60,8 @@ Pair = Tuple[Optional[sa.engine.base.Connection], Optional[str]]
 
 def update_from_metadata(conn: sa.engine.base.Connection) -> None:
     dataset = Dataset.__table__
-    query = sa.text(f"""
+    query = sa.text(
+        f"""
     INSERT INTO {queue.name}
         ({queue.c.dataset_id.name}, {queue.c.updated_at.name},
          {queue.c.retries.name})
@@ -67,17 +73,20 @@ def update_from_metadata(conn: sa.engine.base.Connection) -> None:
     ON CONFLICT ({queue.c.dataset_id.name}) DO UPDATE
         SET {queue.c.updated_at.name} = excluded.{dataset.c.updated_at.name},
             {queue.c.retries.name} = 0
-    """)
+    """
+    )
     conn.execute(query)
 
 
-def _next_row(conn: sa.engine.base.Connection, query,
-              success) -> Iterator[Pair]:
-    query = (query
-             .where(queue.c.retries < 3)
-             .order_by(sa.asc(queue.c.retries))
-             .limit(1)
-             .with_for_update(skip_locked=True))  # yapf: disable
+def _next_row(
+    conn: sa.engine.base.Connection, query, success
+) -> Iterator[Pair]:
+    query = (
+        query.where(queue.c.retries < 3)
+        .order_by(sa.asc(queue.c.retries))
+        .limit(1)
+        .with_for_update(skip_locked=True)
+    )  # yapf: disable
 
     fail = queue.update().values(retries=queue.c.retries + 1)
     trans = conn.begin()
@@ -110,26 +119,28 @@ def _next_row(conn: sa.engine.base.Connection, query,
 
 @contextlib.contextmanager
 def next_row_to_scrape(conn: sa.engine.Connection) -> Iterator[Pair]:
-    query = (sa
-             .select([queue.c.dataset_id])
-             .where(sa.and_(
-                 sa.or_(
-                     queue.c.updated_at >= queue.c.scraped_at,
-                     queue.c.scraped_at.is_(None)),
-             )))  # yapf: disable
+    query = sa.select([queue.c.dataset_id]).where(
+        sa.and_(
+            sa.or_(
+                queue.c.updated_at >= queue.c.scraped_at,
+                queue.c.scraped_at.is_(None),
+            ),
+        )
+    )  # yapf: disable
     success = queue.update().values(scraped_at=sa.func.now(), retries=0)
     yield from _next_row(conn, query, success)
 
 
 @contextlib.contextmanager
 def next_row_to_process(conn: sa.engine.Connection) -> Iterator[Pair]:
-    query = (sa
-             .select([queue.c.dataset_id])
-             .where(sa.and_(
-                  queue.c.scraped_at.isnot(None),
-                  sa.or_(
-                      queue.c.scraped_at >= queue.c.processed_at,
-                      queue.c.processed_at.is_(None)),
-              )))   # yapf: disable
+    query = sa.select([queue.c.dataset_id]).where(
+        sa.and_(
+            queue.c.scraped_at.isnot(None),
+            sa.or_(
+                queue.c.scraped_at >= queue.c.processed_at,
+                queue.c.processed_at.is_(None),
+            ),
+        )
+    )  # yapf: disable
     success = queue.update().values(processed_at=sa.func.now(), retries=0)
     yield from _next_row(conn, query, success)

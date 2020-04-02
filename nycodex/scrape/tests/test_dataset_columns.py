@@ -10,17 +10,20 @@ from nycodex.scrape.exceptions import SocrataTypeError
 
 def test_dataset_columns_dtype_inference():
     df = pd.DataFrame(
-        OrderedDict([
-            ("SMALLINT", ["1", "2", "3", "4"]),
-            ("INTEGER", ['1', '2', '3', '2147483646']),
-            ("BIGINT", ['1', '2', '3', '2147483648']),
-            ("DOUBLE PRECISION", ['1.0', '2.0', '3.0', '4.0']),
-            ("BOOLEAN", ["True", "False", "True", "False"]),
-            ("MONEY", ["$1", "$2.00", "$3.00", "$0"]),
-            ("TEXT", ["a", "b", "c", "d"]),
-            ("DATE", ["a", "b", "c", "d"]),
-            ("TIMESTAMP WITH TIME ZONE", ["a", "b", "c", "d"]),
-        ]))
+        OrderedDict(
+            [
+                ("SMALLINT", ["1", "2", "3", "4"]),
+                ("INTEGER", ["1", "2", "3", "2147483646"]),
+                ("BIGINT", ["1", "2", "3", "2147483648"]),
+                ("DOUBLE PRECISION", ["1.0", "2.0", "3.0", "4.0"]),
+                ("BOOLEAN", ["True", "False", "True", "False"]),
+                ("MONEY", ["$1", "$2.00", "$3.00", "$0"]),
+                ("TEXT", ["a", "b", "c", "d"]),
+                ("DATE", ["a", "b", "c", "d"]),
+                ("TIMESTAMP WITH TIME ZONE", ["a", "b", "c", "d"]),
+            ]
+        )
+    )
     types = [
         db.DataType.NUMBER,
         db.DataType.NUMBER,

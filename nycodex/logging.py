@@ -8,7 +8,8 @@ from .config import LOG_LEVEL
 logging.basicConfig(
     format="%(module)s:%(lineno)d %(message)s",
     level=getattr(logging, LOG_LEVEL),
-    stream=sys.stdout)
+    stream=sys.stdout,
+)
 
 structlog.configure(
     processors=[
@@ -22,7 +23,8 @@ structlog.configure(
         structlog.dev.ConsoleRenderer(),
     ],
     logger_factory=structlog.stdlib.LoggerFactory(),
-    cache_logger_on_first_use=True)
+    cache_logger_on_first_use=True,
+)
 
 
 def get_logger(*args, **kwargs):

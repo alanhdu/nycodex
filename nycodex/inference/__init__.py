@@ -16,9 +16,12 @@ def preprocess_dataset(conn: sa.engine.Connection, dataset_id: str) -> None:
         for name, ty in zip(dataset.column_sql_names, dataset.column_types)
     }
     columns = [
-        column for column in table.c
-        if (isinstance(column.type, sa.String)
-            or isinstance(column.type, sa.Integer))
+        column
+        for column in table.c
+        if (
+            isinstance(column.type, sa.String)
+            or isinstance(column.type, sa.Integer)
+        )
         if allowed_type.get(column.name, True)
     ]
     if not columns:
@@ -30,15 +33,22 @@ def preprocess_dataset(conn: sa.engine.Connection, dataset_id: str) -> None:
         else:
             return column
 
-    selects: List[Sequence[Any]] = [(
-        sa.func.count(sa.distinct(column)).label(f"{column.name}_count"),
-        sa.func.max(length(column)).label(f"{column.name}_max"),
-        sa.func.min(length(column)).label(f"{column.name}_min"),
-    ) for column in columns]
-    selects += [(
-        sa.func.max(column).label(f"{column.name}_max_text"),
-        sa.func.min(column).label(f"{column.name}_min_text"),
-    ) for column in columns if isinstance(column.type, sa.String)]
+    selects: List[Sequence[Any]] = [
+        (
+            sa.func.count(sa.distinct(column)).label(f"{column.name}_count"),
+            sa.func.max(length(column)).label(f"{column.name}_max"),
+            sa.func.min(length(column)).label(f"{column.name}_min"),
+        )
+        for column in columns
+    ]
+    selects += [
+        (
+            sa.func.max(column).label(f"{column.name}_max_text"),
+            sa.func.min(column).label(f"{column.name}_min_text"),
+        )
+        for column in columns
+        if isinstance(column.type, sa.String)
+    ]
     selects = [item for sublist in selects for item in sublist]
     selects += [sa.func.count().label("count")]
 
@@ -65,59 +75,67 @@ def preprocess_dataset(conn: sa.engine.Connection, dataset_id: str) -> None:
             # < 7 because (5 boroughs + "unknown")
             continue
 
-        stmt = postgresql.insert(db.columns) \
-            .values(dataset=dataset.id, column=column.name, **data) \
+        stmt = (
+            postgresql.insert(db.columns)
+            .values(dataset=dataset.id, column=column.name, **data)
             .on_conflict_do_update(
                 index_elements=[db.columns.c.dataset, db.columns.c.column],
-                set_=data
+                set_=data,
             )
+        )
         conn.execute(stmt)
     trans.commit()
 
 
 def is_inclusion(
-        conn: sa.engine.Connection,
-        column: sa.Column,
-        idataset: str,
-        icolumn: str,
+    conn: sa.engine.Connection, column: sa.Column, idataset: str, icolumn: str,
 ) -> bool:
     """Returns whether the `icolumn` from `idataset` includes column"""
-    subquery = sa.select([1]) \
-        .select_from(db.Dataset.table(idataset)) \
+    subquery = (
+        sa.select([1])
+        .select_from(db.Dataset.table(idataset))
         .where(sa.column(icolumn) == column)
-    iquery = sa.select([1]) \
-        .select_from(column.table) \
-        .where(~sa.exists(subquery)) \
+    )
+    iquery = (
+        sa.select([1])
+        .select_from(column.table)
+        .where(~sa.exists(subquery))
         .limit(1)
+    )
     # SELECT 1 FROM column.table WHERE NOT EXISTS
     #   SELECT 1 FROM idataset WHERE icolumn == column
     return conn.execute(iquery).fetchone() is None
 
 
-def fast_filter_inclusions(conn: sa.engine.Connection,
-                           dataset: db.Dataset) -> List[Tuple[str, str, str]]:
+def fast_filter_inclusions(
+    conn: sa.engine.Connection, dataset: db.Dataset
+) -> List[Tuple[str, str, str]]:
     """Find potential includers of dataset with preprocessing info
 
     Returns a list of (column, idataset, icolumn) tuples, where
     dataset.column is included in idataset.icolumn.
     """
-    A = sa.select([db.columns]) \
-        .where(db.columns.c.dataset == dataset.id) \
-        .alias('A')
-    B = sa.select([db.columns]) \
-        .where(db.columns.c.unique &
-               (db.columns.c.dataset != dataset.id)) \
-        .alias('B')
+    A = (
+        sa.select([db.columns])
+        .where(db.columns.c.dataset == dataset.id)
+        .alias("A")
+    )
+    B = (
+        sa.select([db.columns])
+        .where(db.columns.c.unique & (db.columns.c.dataset != dataset.id))
+        .alias("B")
+    )
 
-    query = sa.select([A.c.column, B.c.dataset, B.c.column]) \
-        .where(sa.and_(
+    query = sa.select([A.c.column, B.c.dataset, B.c.column]).where(
+        sa.and_(
             A.c.is_text == B.c.is_text,
             A.c.distinct_count <= B.c.distinct_count,
             A.c.min_len >= B.c.min_len,
             A.c.min_text >= B.c.min_text,
             A.c.max_len <= B.c.max_len,
             A.c.max_text <= B.c.max_text,
-        ))
+        )
+    )
     return conn.execute(query).fetchall()
 
 
@@ -126,17 +144,23 @@ def find_all_inclusions(conn: sa.engine.Connection, dataset_id: str) -> None:
     dataset = db.Dataset.get_by_id(conn, dataset_id)
 
     table = dataset.to_table(conn)
-    inclusions = [{
-        "target_dataset": dataset.id,
-        "target_column": colname,
-        "source_dataset": idataset,
-        "source_column": icolumn,
-    } for colname, idataset, icolumn in fast_filter_inclusions(conn, dataset)
-                  if is_inclusion(conn, table.c[colname], idataset, icolumn)]
+    inclusions = [
+        {
+            "target_dataset": dataset.id,
+            "target_column": colname,
+            "source_dataset": idataset,
+            "source_column": icolumn,
+        }
+        for colname, idataset, icolumn in fast_filter_inclusions(conn, dataset)
+        if is_inclusion(conn, table.c[colname], idataset, icolumn)
+    ]
 
     if inclusions:
         trans = conn.begin()
-        conn.execute(db.inclusions.delete().where(
-            db.inclusions.c.target_dataset == dataset.id))
+        conn.execute(
+            db.inclusions.delete().where(
+                db.inclusions.c.target_dataset == dataset.id
+            )
+        )
         conn.execute(db.inclusions.insert().values(inclusions))
         trans.commit()

@@ -5,7 +5,7 @@ import testing.postgresql
 from nycodex import db
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def engine():
     with testing.postgresql.Postgresql() as postgresql:
         engine = sa.create_engine(postgresql.url())

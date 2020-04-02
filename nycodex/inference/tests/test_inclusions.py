@@ -29,36 +29,43 @@ def dataset_factory(id: str) -> db.Dataset:
         column_field_names=[],
         column_sql_names=[],
         column_types=[],
-        column_descriptions=[])
+        column_descriptions=[],
+    )
 
 
 @pytest.fixture
 def A(conn):
-    df = pd.DataFrame({
-        "a": list(range(100)),
-        "b": ["abcdefghijklmnopqrstuvwxyz"[i % 26] for i in range(100)]
-    })  # yapf: disable
-    df.to_sql("aaaa-0000", conn, index=False, schema='raw')
+    df = pd.DataFrame(
+        {
+            "a": list(range(100)),
+            "b": ["abcdefghijklmnopqrstuvwxyz"[i % 26] for i in range(100)],
+        }
+    )  # yapf: disable
+    df.to_sql("aaaa-0000", conn, index=False, schema="raw")
     return dataset_factory("aaaa-0000")
 
 
 @pytest.fixture
 def B(conn):
-    df = pd.DataFrame({
-        "a": list(range(20)) * 5,
-        "b": ["abcdefghij" [i % 10] for i in range(100)]
-    })
-    df.to_sql("bbbb-1111", conn, index=False, schema='raw')
+    df = pd.DataFrame(
+        {
+            "a": list(range(20)) * 5,
+            "b": ["abcdefghij"[i % 10] for i in range(100)],
+        }
+    )
+    df.to_sql("bbbb-1111", conn, index=False, schema="raw")
     return dataset_factory("bbbb-1111")
 
 
 @pytest.fixture
 def C(conn):
-    df = pd.DataFrame({
-        "a": list(range(90, 110)) * 5,
-        "b": [['aa', 'bb'][i % 2] for i in range(100)]
-    })
-    df.to_sql("cccc-2222", conn, index=False, schema='raw')
+    df = pd.DataFrame(
+        {
+            "a": list(range(90, 110)) * 5,
+            "b": [["aa", "bb"][i % 2] for i in range(100)],
+        }
+    )
+    df.to_sql("cccc-2222", conn, index=False, schema="raw")
     return dataset_factory("cccc-2222")
 
 
@@ -66,11 +73,11 @@ def test_is_inclusion(conn, A, B, C):
     A = A.to_table(conn)
     B = B.to_table(conn)
     C = C.to_table(conn)
-    assert inference.is_inclusion(conn, B.c['a'], A.name, 'a')
-    assert inference.is_inclusion(conn, B.c['b'], A.name, 'b')
+    assert inference.is_inclusion(conn, B.c["a"], A.name, "a")
+    assert inference.is_inclusion(conn, B.c["b"], A.name, "b")
 
-    assert not inference.is_inclusion(conn, C.c['a'], A.name, 'a')
-    assert not inference.is_inclusion(conn, C.c['b'], A.name, 'b')
+    assert not inference.is_inclusion(conn, C.c["a"], A.name, "a")
+    assert not inference.is_inclusion(conn, C.c["b"], A.name, "b")
 
 
 def test_preprocessing(conn, session, A, B, C):
@@ -82,8 +89,9 @@ def test_preprocessing(conn, session, A, B, C):
 
     assert [] == inference.fast_filter_inclusions(conn, A)
     # b is not an option because it's not unique
-    assert [('a', 'aaaa-0000', 'a')] == inference.fast_filter_inclusions(
-        conn, B)
+    assert [("a", "aaaa-0000", "a")] == inference.fast_filter_inclusions(
+        conn, B
+    )
     assert [] == inference.fast_filter_inclusions(conn, C)
 
 

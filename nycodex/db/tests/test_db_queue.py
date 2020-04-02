@@ -38,7 +38,8 @@ def dataset_factory(id: str) -> db.Dataset:
         column_field_names=[],
         column_sql_names=[],
         column_types=[],
-        column_descriptions=[])
+        column_descriptions=[],
+    )
 
 
 @pytest.fixture
@@ -65,16 +66,24 @@ def test_update_from_metadata(conn, session):
     session.add_all(datasets)
     session.commit()
 
-    query = sa.select([
-        queue.c.dataset_id, queue.c.updated_at, queue.c.scraped_at,
-        queue.c.processed_at, queue.c.retries
-    ])
+    query = sa.select(
+        [
+            queue.c.dataset_id,
+            queue.c.updated_at,
+            queue.c.scraped_at,
+            queue.c.processed_at,
+            queue.c.retries,
+        ]
+    )
 
     orig = dt.datetime(2017, 1, 4, 11, 0, 0)
     new = dt.datetime(2017, 1, 5, 11, 30, 0)  # line up with factory
 
-    conn.execute(queue.insert().values(
-        dataset_id="abcd-0000", updated_at=orig, scraped_at=orig, retries=1))
+    conn.execute(
+        queue.insert().values(
+            dataset_id="abcd-0000", updated_at=orig, scraped_at=orig, retries=1
+        )
+    )
 
     db.queue.update_from_metadata(conn)
     assert conn.execute(query).fetchall() == [
@@ -92,11 +101,20 @@ def test_update_from_metadata_future(conn, session):
     session.commit()
 
     db.queue.update_from_metadata(conn)
-    assert [("abcd-0000", None, None, 0)] == conn.execute(
-        sa.select([
-            queue.c.dataset_id, queue.c.scraped_at, queue.c.processed_at,
-            queue.c.retries
-        ])).fetchall() == [("abcd-0000", None, None, 0)]
+    assert (
+        [("abcd-0000", None, None, 0)]
+        == conn.execute(
+            sa.select(
+                [
+                    queue.c.dataset_id,
+                    queue.c.scraped_at,
+                    queue.c.processed_at,
+                    queue.c.retries,
+                ]
+            )
+        ).fetchall()
+        == [("abcd-0000", None, None, 0)]
+    )
 
     updated_at = conn.execute(sa.select([queue.c.updated_at])).fetchone()[0]
 
@@ -112,13 +130,21 @@ def test_next_row_to_scrape_empty(conn):
 def test_next_row_to_scrape(conn, fake_dataset):
     start = dt.datetime.now()
     orig = start - dt.timedelta(days=2)
-    conn.execute(queue.insert().values(
-        dataset_id=fake_dataset, retries=0, updated_at=orig))
+    conn.execute(
+        queue.insert().values(
+            dataset_id=fake_dataset, retries=0, updated_at=orig
+        )
+    )
 
-    query = sa.select([
-        queue.c.dataset_id, queue.c.updated_at, queue.c.scraped_at,
-        queue.c.processed_at, queue.c.retries
-    ])
+    query = sa.select(
+        [
+            queue.c.dataset_id,
+            queue.c.updated_at,
+            queue.c.scraped_at,
+            queue.c.processed_at,
+            queue.c.retries,
+        ]
+    )
 
     # On error, increment `retries` while leaving `updated_at` alone
     with pytest.raises(ZeroDivisionError):
@@ -152,21 +178,32 @@ def test_next_row_to_scrape(conn, fake_dataset):
 def test_next_row_to_process(conn, fake_dataset):
     start = dt.datetime.now()
     original = start - dt.timedelta(days=2)
-    conn.execute(queue.insert().values(
-        dataset_id=fake_dataset, retries=0, updated_at=original))
+    conn.execute(
+        queue.insert().values(
+            dataset_id=fake_dataset, retries=0, updated_at=original
+        )
+    )
 
-    query = sa.select([
-        queue.c.dataset_id, queue.c.updated_at, queue.c.scraped_at,
-        queue.c.processed_at, queue.c.retries
-    ])
+    query = sa.select(
+        [
+            queue.c.dataset_id,
+            queue.c.updated_at,
+            queue.c.scraped_at,
+            queue.c.processed_at,
+            queue.c.retries,
+        ]
+    )
 
     # Without a scraped dataset, don't do anything
     with db.queue.next_row_to_process(conn) as (c, dataset_id):
         assert c is None
         assert dataset_id is None
 
-    conn.execute(queue.update().where(
-        queue.c.dataset_id == fake_dataset).values(scraped_at=original))
+    conn.execute(
+        queue.update()
+        .where(queue.c.dataset_id == fake_dataset)
+        .values(scraped_at=original)
+    )
 
     # On success, reset `retries` and update `processed_at`
     with db.queue.next_row_to_process(conn) as (__, dataset_id):
@@ -196,10 +233,13 @@ def test_db_failure(engine):
         session.add(dataset)
         session.commit()
 
-        conn.execute(queue.insert().values(
-            dataset_id=dataset.id,
-            retries=0,
-            updated_at=dt.datetime.now() - dt.timedelta(days=1)))
+        conn.execute(
+            queue.insert().values(
+                dataset_id=dataset.id,
+                retries=0,
+                updated_at=dt.datetime.now() - dt.timedelta(days=1),
+            )
+        )
         with pytest.raises(sa.exc.InternalError):
             with db.queue.next_row_to_scrape(conn) as (c, dataset_id):
                 assert c is not None

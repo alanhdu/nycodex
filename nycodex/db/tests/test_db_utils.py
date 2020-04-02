@@ -24,7 +24,7 @@ def test_upsert(session, conn):
     FakeTable.upsert(conn, fake)
     assert session.query(FakeTable).order_by(FakeTable.id).all() == fake
 
-    fake[0].name = 'b'
+    fake[0].name = "b"
     FakeTable.upsert(conn, fake)
     assert session.query(FakeTable).order_by(FakeTable.id).all() == fake
 
@@ -33,5 +33,5 @@ def test_upsert(session, conn):
         FakeTable(id="abcd-0002", name="d", description=None),
     ]
     FakeTable.upsert(conn, new)
-    fake[2].name = 'd'
+    fake[2].name = "d"
     assert session.query(FakeTable).order_by(FakeTable.id).all() == fake

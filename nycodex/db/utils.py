@@ -1,22 +1,17 @@
-import enum
-from typing import Any, Dict, Iterable, List, Type
+from typing import Iterable
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 
-# TODO (SQLAlchemy 1.3). See
-# https://bitbucket.org/zzzeek/sqlalchemy/issues/3906/
-def enum_values(enum: Type[enum.Enum]) -> List[str]:
-    return [v.value for v in enum.__members__.values()]
-
-
-class DbMixin:
+class UpsertMixin:
     __table__: sa.Table
 
     @classmethod
     def upsert(
-        cls, conn: sa.engine.base.Connection, instances: Iterable["DbMixin"]
+        cls,
+        conn: sa.engine.base.Connection,
+        instances: Iterable["UpsertMixin"],
     ) -> None:
         keys = cls.__table__.c.keys()
         for instance in instances:
@@ -34,10 +29,3 @@ class DbMixin:
                 )
             )
             conn.execute(insert)
-
-    def to_dict(self) -> Dict[str, Any]:
-        keys = self.__table__.c.keys()
-        return {key: getattr(self, key) for key in keys}
-
-    def __eq__(self, other: Any) -> bool:
-        return self.to_dict() == other.to_dict()

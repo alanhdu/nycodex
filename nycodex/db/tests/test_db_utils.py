@@ -1,14 +1,23 @@
 import sqlalchemy as sa
 
 from nycodex import db
+from nycodex.db.utils import UpsertMixin
 
 
-class FakeTable(db.Base, db.DbMixin):
+class FakeTable(db.Base, UpsertMixin):
     __tablename__ = "_fake_table"
 
     id = sa.Column(sa.CHAR(9), primary_key=True)
     name = sa.Column(sa.TEXT, nullable=False)
     description = sa.Column(sa.TEXT, nullable=True)
+
+    def __eq__(self, other: object) -> bool:
+        return (
+            isinstance(other, FakeTable)
+            and other.id == self.id
+            and other.name == self.name
+            and other.description == self.description
+        )
 
 
 def test_upsert(session, conn):

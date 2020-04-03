@@ -13,18 +13,17 @@ class UpsertMixin:
         conn: sa.engine.base.Connection,
         instances: Iterable["UpsertMixin"],
     ) -> None:
-        keys = cls.__table__.c.keys()
         for instance in instances:
             data = {
                 key: getattr(instance, key)
-                for key in keys
+                for key in cls.__table__.c.keys()
                 if getattr(instance, key) is not None
             }
             insert = (
                 postgresql.insert(cls.__table__)
                 .values(**data)
                 .on_conflict_do_update(
-                    index_elements=[cls.__table__.c.id],
+                    index_elements=cls.__table__.primary_key.columns,
                     set_={k: data[k] for k in data if k != "id"},
                 )
             )

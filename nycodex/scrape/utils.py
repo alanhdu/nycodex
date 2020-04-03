@@ -16,8 +16,7 @@ def download_file(
     r = requests.get(url, params=params, stream=True)
     size = 0
     with tempfile.NamedTemporaryFile() as fout:
-        # https://github.com/python/typeshed/pull/1784
-        for chunk in r.iter_content(None):  # type: ignore
+        for chunk in r.iter_content(None):
             if chunk:  # filter out keep-alive chunks
                 fout.write(chunk)
             size += len(chunk)

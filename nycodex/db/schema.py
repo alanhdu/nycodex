@@ -64,5 +64,28 @@ class Field(Base, UpsertMixin):
     datatype = sa.Column(postgresql.ENUM(DataType), nullable=False)
     description = sa.Column(sa.TEXT, nullable=True)
     name = sa.Column(sa.TEXT, nullable=False)
-
     dataset = sa.orm.relationship("Dataset", back_populates="fields")
+
+
+class Sketch(Base, UpsertMixin):
+    __tablename__ = "sketch"
+    __table_args__ = (
+        sa.ForeignKeyConstraint(
+            ["dataset_id", "field_name"],
+            ["field.dataset_id", "field.field_name"],
+        ),
+    )
+
+    dataset_id = sa.Column(
+        sa.CHAR(9), sa.ForeignKey(Dataset.id), primary_key=True
+    )
+    field_name = sa.Column(sa.TEXT, nullable=False, primary_key=True)
+    update_time = sa.Column(
+        sa.TIMESTAMP(timezone=False),
+        server_default=sa.func.now(),
+        onupdate=sa.func.now(),
+        nullable=False,
+    )
+
+    count = sa.Column(sa.Integer, nullable=False)
+    distinct_count = sa.Column(sa.Integer, nullable=False)
